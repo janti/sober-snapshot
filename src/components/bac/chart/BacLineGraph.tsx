@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BacDataPoint, ChartCoordinates } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,7 +13,11 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
   chartHeight, 
   coordinates 
 }) => {
-  if (chartData.length === 0) return null;
+  // Filter out zero BAC points, but ensure we keep at least one point if all are zero
+  const filteredData = chartData.filter(point => point.bac > 0);
+  const displayData = filteredData.length > 0 ? filteredData : (chartData.length > 0 ? [chartData[0]] : []);
+
+  if (displayData.length === 0) return null;
 
   // Format time for tooltip display
   const formatTime = (date: Date): string => {
@@ -27,14 +30,14 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
 
   // Create path coordinates
   const createPath = () => {
-    if (chartData.length < 2) return '';
+    if (displayData.length < 2) return '';
     
     // Start with the first point
-    let path = `M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}`;
+    let path = `M ${coordinates.getXCoordinate(displayData[0].time)}% ${coordinates.getYCoordinate(displayData[0].bac)}`;
     
     // Add line segments to each subsequent point
-    for (let i = 1; i < chartData.length; i++) {
-      path += ` L ${coordinates.getXCoordinate(chartData[i].time)}% ${coordinates.getYCoordinate(chartData[i].bac)}`;
+    for (let i = 1; i < displayData.length; i++) {
+      path += ` L ${coordinates.getXCoordinate(displayData[i].time)}% ${coordinates.getYCoordinate(displayData[i].bac)}`;
     }
     
     return path;
@@ -42,19 +45,19 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
 
   // Create area under the path
   const createAreaPath = () => {
-    if (chartData.length < 2) return '';
+    if (displayData.length < 2) return '';
     
     // Start with the first point
-    let path = `M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}`;
+    let path = `M ${coordinates.getXCoordinate(displayData[0].time)}% ${coordinates.getYCoordinate(displayData[0].bac)}`;
     
     // Add line segments to each subsequent point
-    for (let i = 1; i < chartData.length; i++) {
-      path += ` L ${coordinates.getXCoordinate(chartData[i].time)}% ${coordinates.getYCoordinate(chartData[i].bac)}`;
+    for (let i = 1; i < displayData.length; i++) {
+      path += ` L ${coordinates.getXCoordinate(displayData[i].time)}% ${coordinates.getYCoordinate(displayData[i].bac)}`;
     }
     
     // Complete the area by drawing lines to the bottom and back to the start
-    const lastPointX = coordinates.getXCoordinate(chartData[chartData.length - 1].time);
-    const firstPointX = coordinates.getXCoordinate(chartData[0].time);
+    const lastPointX = coordinates.getXCoordinate(displayData[displayData.length - 1].time);
+    const firstPointX = coordinates.getXCoordinate(displayData[0].time);
     
     path += ` L ${lastPointX}% ${chartHeight}`;  // Line down from last point
     path += ` L ${firstPointX}% ${chartHeight}`;  // Line across the bottom
@@ -88,7 +91,7 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         />
         
         {/* Add dots for all points along the BAC line */}
-        {chartData.map((point, index) => (
+        {displayData.map((point, index) => (
           <foreignObject
             key={index}
             x={`${coordinates.getXCoordinate(point.time)}%`}
@@ -117,14 +120,16 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         ))}
         
         {/* Current BAC point indicator (highlighted) */}
-        <circle
-          cx={`${coordinates.getXCoordinate(chartData[0].time)}%`}
-          cy={coordinates.getYCoordinate(chartData[0].bac)}
-          r="5"
-          fill="hsl(var(--primary))"
-          stroke="white"
-          strokeWidth="2"
-        />
+        {displayData.length > 0 && (
+          <circle
+            cx={`${coordinates.getXCoordinate(displayData[0].time)}%`}
+            cy={coordinates.getYCoordinate(displayData[0].bac)}
+            r="5"
+            fill="hsl(var(--primary))"
+            stroke="white"
+            strokeWidth="2"
+          />
+        )}
       </svg>
     </TooltipProvider>
   );

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { BacAxisLabels } from './BacAxisLabels';
@@ -28,16 +27,31 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
     }
 
     // Create a copy of the data so we don't modify the original
-    const newChartData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
+    const newChartData = [...data]
+      .sort((a, b) => a.time.getTime() - b.time.getTime())
+      .filter(point => point.bac > 0); // Filter out zero BAC points
     
-    // If there's only one data point, duplicate it to ensure we have a line
-    if (newChartData.length === 1) {
-      // Add a point 1 hour later with slightly lower BAC
-      const nextTime = new Date(newChartData[0].time.getTime() + 60 * 60 * 1000);
-      newChartData.push({
-        time: nextTime,
-        bac: Math.max(0, newChartData[0].bac - 0.015) // Subtract standard elimination rate
-      });
+    // If all points were zero or filtered out, keep at least the current point
+    if (newChartData.length === 0 && data.length > 0) {
+      newChartData.push(data[0]);
+    }
+    
+    // If there's only one data point and it has BAC > 0, add a projection point
+    if (newChartData.length === 1 && newChartData[0].bac > 0) {
+      // If we have sober time, use that for the second point
+      if (soberTime) {
+        newChartData.push({
+          time: soberTime,
+          bac: 0
+        });
+      } else {
+        // Otherwise, add a point 1 hour later with slightly lower BAC
+        const nextTime = new Date(newChartData[0].time.getTime() + 60 * 60 * 1000);
+        newChartData.push({
+          time: nextTime,
+          bac: Math.max(0, newChartData[0].bac - 0.015) // Subtract standard elimination rate
+        });
+      }
     }
     
     setChartData(newChartData);
@@ -118,8 +132,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   }
 
   // Add BAC markers
-  for (let level = bacInterval; level <= maxBac; level += bacInterval) {
-    bacMarks.push(parseFloat(level.toFixed(4))); // Fix floating point precision
+  for (let bac = bacInterval; bac <= maxBac; bac += bacInterval) {
+    bacMarks.push(parseFloat(bac.toFixed(4))); // Fix floating point precision
   }
 
   // Chart dimensions
