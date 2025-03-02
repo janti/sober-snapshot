@@ -30,12 +30,18 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       bacFormatted: (point.bac * 10).toFixed(1)
     }));
 
-    // If we have a sober time and it's after our last data point, add it to the chart
+    // Sort data by timestamp to ensure chronological order
+    transformedData.sort((a, b) => a.timestamp - b.timestamp);
+
+    // If we have a sober time and it's not already in our data, add it to the chart
     if (soberTime && transformedData.length > 0) {
-      const lastTimestamp = transformedData[transformedData.length - 1].timestamp;
-      if (soberTime.getTime() > lastTimestamp) {
+      const soberTimestamp = soberTime.getTime();
+      const lastDataPoint = transformedData[transformedData.length - 1];
+      
+      // Only add the sober time point if it's in the future and not already represented
+      if (soberTimestamp > lastDataPoint.timestamp) {
         transformedData.push({
-          timestamp: soberTime.getTime(),
+          timestamp: soberTimestamp,
           time: soberTime.toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit',
@@ -53,7 +59,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       dataLength: transformedData.length,
       firstPoint: transformedData.length > 0 ? transformedData[0].time : null,
       lastPoint: transformedData.length > 0 ? transformedData[transformedData.length - 1].time : null,
-      hasSoberTime: !!soberTime
+      soberTime: soberTime ? soberTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : null
     });
   }, [data, soberTime]);
 
@@ -75,7 +81,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
   // Calculate domain for X axis
   const xMin = chartData.length > 0 ? chartData[0].timestamp : 0;
-  const xMax = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+  // Ensure xMax includes soberTime if it exists
+  const xMax = soberTime && soberTime.getTime() > (chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0)
+    ? soberTime.getTime()
+    : chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
 
   return (
     <div className="h-64 w-full">
