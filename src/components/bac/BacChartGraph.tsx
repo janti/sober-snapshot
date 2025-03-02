@@ -112,7 +112,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
-  // Force re-calculation of domain for X-axis on every render
+  // Calculate domain for X-axis on every render
   const xDomain = React.useMemo(() => {
     if (chartData.length === 0) return [0, 1];
     
