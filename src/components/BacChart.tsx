@@ -1,11 +1,9 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import { Badge } from "@/components/ui/badge";
 import { CarFront, CarTaxiFront, IceCreamCone } from 'lucide-react';
-import { useLanguage } from '@/context/LanguageContext';
 
 interface BacChartProps {
   data: { time: Date; bac: number }[];
@@ -14,25 +12,17 @@ interface BacChartProps {
 }
 
 const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
-  const { t } = useLanguage();
-  
-  // Convert data to a format that Recharts can understand
   const chartData = data.map(point => ({
-    // Use timestamp for X axis
     timestamp: point.time.getTime(),
-    // Format time for display
     time: point.time.toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit'
     }),
-    // Keep BAC as a number for the chart
     bac: point.bac,
-    // Format BAC for display in permille
     bacFormatted: (point.bac * 10).toFixed(1)
   }));
 
   const currentBac = data.length > 0 ? data[data.length - 1].bac : 0;
-  // Set a min scale to avoid collapsing when BAC is low
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
   
   const isAboveRegularLimit = currentBac > LEGAL_LIMITS.regular;
@@ -55,21 +45,19 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
     const now = new Date();
     const diffMs = date.getTime() - now.getTime();
     
-    // Less than a minute remaining
-    if (diffMs < 60000) return t('time.lessThanMinute');
+    if (diffMs < 60000) return 'Less than a minute';
     
-    // Already sober
-    if (diffMs < 0) return t('time.youAreSober');
+    if (diffMs < 0) return 'You are sober now';
     
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
     let result = '';
     if (diffHours > 0) {
-      result += `${diffHours} ${diffHours === 1 ? t('time.hour') : t('time.hours')} `;
+      result += `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} `;
     }
     if (diffMinutes > 0 || diffHours === 0) {
-      result += `${diffMinutes} ${diffMinutes === 1 ? t('time.minute') : t('time.minutes')}`;
+      result += `${diffMinutes} ${diffMinutes === 1 ? 'minute' : 'minutes'}`;
     }
     
     return result;
@@ -83,11 +71,11 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
             <div className="flex items-center gap-2">
               <IceCreamCone className="h-5 w-5 text-accent" />
               <CardTitle className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {t('chart.title')}
+                Blood Alcohol Chart
               </CardTitle>
             </div>
             <CardDescription>
-              {t('chart.description')}
+              Track your Blood Alcohol Content (BAC) over time
             </CardDescription>
           </div>
           <div className="flex flex-col gap-2 items-end">
@@ -96,14 +84,14 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
               className="flex gap-1 items-center shadow-sm"
             >
               <CarFront className="h-3 w-3" />
-              <span>{(LEGAL_LIMITS.regular * 10).toFixed(1)}‰ {t('chart.regularLimit')}</span>
+              <span>{(LEGAL_LIMITS.regular * 10).toFixed(1)}‰ Regular Limit</span>
             </Badge>
             <Badge 
               variant={isAboveProfessionalLimit ? "destructive" : "outline"}
               className="flex gap-1 items-center shadow-sm"
             >
               <CarTaxiFront className="h-3 w-3" />
-              <span>{(LEGAL_LIMITS.professional * 10).toFixed(1)}‰ {t('chart.professionalLimit')}</span>
+              <span>{(LEGAL_LIMITS.professional * 10).toFixed(1)}‰ Professional Limit</span>
             </Badge>
           </div>
         </div>
@@ -126,9 +114,9 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <XAxis 
                   dataKey="timestamp" 
                   tickFormatter={formatXAxis} 
-                  tick={{ fontSize: 12, fill: "#33C3F0" }}
-                  stroke="#8E9196"
-                  tickLine={{ stroke: '#8E9196' }}
+                  tick={{ fontSize: 12, fill: "var(--foreground)" }}
+                  stroke="var(--foreground)"
+                  tickLine={{ stroke: 'var(--foreground)' }}
                   domain={['dataMin', 'dataMax']}
                   type="number"
                   scale="time"
@@ -137,10 +125,10 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <YAxis 
                   tickFormatter={value => `${(value * 10).toFixed(1)}`}
                   domain={[0, maxBac * 1.1]} 
-                  tick={{ fontSize: 12, fill: "#33C3F0" }}
+                  tick={{ fontSize: 12, fill: "var(--foreground)" }}
                   unit="‰"
-                  stroke="#8E9196"
-                  tickLine={{ stroke: '#8E9196' }}
+                  stroke="var(--foreground)"
+                  tickLine={{ stroke: 'var(--foreground)' }}
                   allowDecimals={true}
                   minTickGap={10}
                 />
@@ -165,7 +153,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                   stroke="#f43f5e" 
                   strokeDasharray="3 3" 
                   label={{ 
-                    value: t('chart.regularLimit'),
+                    value: "Regular Limit",
                     position: "insideBottomRight",
                     fill: "#f43f5e",
                     fontSize: 10
@@ -176,7 +164,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                   stroke="#f59e0b" 
                   strokeDasharray="3 3" 
                   label={{ 
-                    value: t('chart.professionalLimit'),
+                    value: "Professional Limit",
                     position: "insideBottomRight",
                     fill: "#f59e0b",
                     fontSize: 10
@@ -197,18 +185,18 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground">
               {data.length === 0 
-                ? t('chart.noData') 
-                : t('chart.moreData')}
+                ? "Add drinks to see your BAC chart" 
+                : "Add more drinks to see a detailed chart"}
             </div>
           )}
         </div>
 
         {soberTime && data.length > 0 && (
           <div className="p-4 bg-secondary rounded-lg shadow-inner">
-            <div className="text-sm font-medium">{t('time.untilSober')}</div>
+            <div className="text-sm font-medium">Time until sober</div>
             <div className="text-2xl font-bold mt-1 text-primary">{formatSoberTime(soberTime)}</div>
             <div className="text-xs text-muted-foreground mt-1">
-              {t('time.soberAt')} {soberTime.toLocaleTimeString([], { 
+              Sober at {soberTime.toLocaleTimeString([], { 
                 hour: '2-digit', 
                 minute: '2-digit',
                 hour12: true
