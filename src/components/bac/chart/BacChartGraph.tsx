@@ -91,31 +91,35 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     hourInterval = 2;
   }
 
-  // Generate hour marks starting from current time at regular intervals
+  // Generate hour marks for x-axis
   const hourMarks: Date[] = [];
   
-  // Always add the current time as first mark
+  // Always add the current time (now) as the first mark
   hourMarks.push(new Date(now));
   
-  // Add hour marks at fixed intervals
-  let currentHour = new Date(now);
-  currentHour.setMinutes(0, 0, 0); // Round to the current hour
+  // Round to the nearest hour for subsequent marks
+  let nextHourMark = new Date(now);
+  nextHourMark.setMinutes(0, 0, 0); // Round to the current hour
   
-  // If we're past the half-hour mark, move to the next hour
-  if (now.getMinutes() >= 30) {
-    currentHour.setHours(currentHour.getHours() + 1);
+  // If we're past the 30-minute mark, move to the next hour
+  if (now.getMinutes() > 30) {
+    nextHourMark.setHours(nextHourMark.getHours() + 1);
   } else {
-    // Otherwise start from the current hour
-    currentHour.setHours(currentHour.getHours());
+    // Otherwise, keep the current hour
+    nextHourMark.setHours(nextHourMark.getHours());
   }
   
-  // Add the next several hours as marks
-  while (currentHour <= endTime && hourMarks.length < 6) {
-    // Only add if not too close to the current time mark
-    if (currentHour.getTime() - now.getTime() > 20 * 60 * 1000) { // At least 20 minutes apart
-      hourMarks.push(new Date(currentHour));
+  // Only add the next hour mark if it's sufficiently far from now
+  if (nextHourMark.getTime() - now.getTime() > 15 * 60 * 1000) { // At least 15 minutes difference
+    hourMarks.push(new Date(nextHourMark));
+  }
+  
+  // Add remaining hour marks at regular intervals
+  while (hourMarks.length < 6 && nextHourMark < endTime) {
+    nextHourMark = new Date(nextHourMark.getTime() + hourInterval * 60 * 60 * 1000);
+    if (nextHourMark <= endTime) {
+      hourMarks.push(new Date(nextHourMark));
     }
-    currentHour = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
   }
   
   // Create BAC level marks with appropriate intervals, always including zero
@@ -139,23 +143,21 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Helper functions to calculate coordinates
   const coordinates = {
     getXCoordinate(time: Date): number {
-      // Convert to hours since start
-      const hoursSinceStart = (time.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+      // Convert to milliseconds since start
+      const msSinceStart = time.getTime() - startTime.getTime();
       
-      // Calculate percentage based on total hours
-      const percent = hoursSinceStart / totalHours;
+      // Convert to percentage of total duration
+      const totalMs = totalHours * 60 * 60 * 1000;
+      const percent = (msSinceStart / totalMs) * 100;
       
-      // Convert percentage to actual position - using actual percentage of available width
-      return leftPadding + percent * (100 - leftPadding);
+      // Apply left padding
+      return leftPadding + (percent * (100 - leftPadding) / 100);
     },
     
     getYCoordinate(bac: number): number {
-      // SVG coordinates go from top to bottom, so we need to invert
-      if (maxBac === 0) return chartHeight - 5; // Handle edge case
-      
-      const percent = bac / maxBac;
-      // Leave 5% padding at the top
-      return chartHeight - (percent * chartHeight);
+      // Convert BAC to percentage of max BAC and invert (0 at bottom, max at top)
+      if (maxBac === 0) return chartHeight;
+      return chartHeight - (bac / maxBac) * chartHeight;
     }
   };
 
