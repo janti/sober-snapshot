@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 
@@ -109,14 +108,18 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for scaling (with minimum of 0.08 to ensure proper visualization)
   const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
-  // Get start and end times for the chart
-  const startTime = chartData[0].time; // First point is always current time
-  const endTime = chartData[chartData.length - 1].time;
+  // Get start and end times for the chart - always start from current time
+  const startTime = new Date(); // Always use current time as start
+  const endTime = soberTime || 
+    new Date(Math.max(
+      ...chartData.map(d => d.time.getTime()),
+      startTime.getTime() + 3 * 60 * 60 * 1000 // At least 3 hours
+    ));
   
   // Calculate total hours for the chart (with a minimum of 3 hours to avoid too narrow display)
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
   
-  // Create hour interval - aim for 4-8 marks
+  // Create hour interval based on total hours
   let hourInterval = 1; // Default to 1 hour
   if (totalHours > 12) {
     hourInterval = 3;
@@ -124,71 +127,60 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     hourInterval = 2;
   }
   
-  // Generate hour marks
+  // Generate hour marks from current time
   const hourMarks: Date[] = [];
-  
-  // Start from current time (first data point)
   let currentHour = new Date(startTime);
-  
-  // Round to the next full hour for nicer display
   currentHour.setMinutes(0, 0, 0);
+  
+  // Ensure first mark is at or after current time
   if (currentHour.getTime() < startTime.getTime()) {
     currentHour.setHours(currentHour.getHours() + 1);
   }
   
-  // Add hour marks at regular intervals
-  while (currentHour.getTime() <= endTime.getTime() + hourInterval * 60 * 60 * 1000) {
+  // Add hour marks at regular intervals until end time
+  while (currentHour.getTime() <= endTime.getTime()) {
     hourMarks.push(new Date(currentHour));
     currentHour.setHours(currentHour.getHours() + hourInterval);
   }
 
-  // Create BAC level marks with appropriate intervals
+  // Create BAC level marks with appropriate intervals, skipping zero
   const bacMarks: number[] = [];
-  // Determine a nice interval based on max BAC
   let bacInterval = 0.02; // default for small values
+  
   if (maxBac > 0.4) {
     bacInterval = 0.1;
   } else if (maxBac > 0.2) {
     bacInterval = 0.05;
   }
   
-  // Generate BAC marks from 0 up to maxBac (rounded up to next interval)
+  // Start from first interval (skip zero)
   const roundedMaxBac = Math.ceil(maxBac / bacInterval) * bacInterval;
-  for (let level = 0; level <= roundedMaxBac; level += bacInterval) {
+  for (let level = bacInterval; level <= roundedMaxBac; level += bacInterval) {
     bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
   }
 
-  // Ensure we have at least 3 BAC marks regardless of the calculated interval
-  if (bacMarks.length < 3) {
-    bacMarks.length = 0;
-    bacInterval = maxBac / 4;
-    for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
-      bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
-    }
-  }
+  // Calculate chart dimensions
+  const chartHeight = 200; // Reduced height to prevent overflow
+  const leftPadding = 50; // Padding for Y-axis labels
 
-  // Calculate chart dimensions for proper scaling
-  const chartHeight = 220; // Fixed height to prevent overflow
-  const leftPadding = 50; // Increased padding for Y-axis labels
+  // Find current BAC value
+  const currentBacValue = chartData.length > 0 ? chartData[0].bac : 0;
 
   return (
-    <div className="w-full h-[280px] relative mb-2 overflow-hidden">
+    <div className="w-full h-[240px] relative mb-2">
       {/* Chart container */}
-      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-8 pr-2" style={{ height: chartHeight }}>
+      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-2 pr-2" style={{ height: chartHeight }}>
         {/* Horizontal grid lines and Y-axis labels */}
         {bacMarks.map((level, index) => {
           const percentY = 100 - (level / roundedMaxBac) * 100;
-          
-          // Skip if the position would be off-chart
-          if (percentY < 0 || percentY > 100) return null;
           
           return (
             <div 
               key={`y-${index}`} 
               className="absolute w-full border-t border-border border-opacity-50 flex items-center"
-              style={{ top: `${percentY}%` }}
+              style={{ top: `${percentY}%`, left: 0 }}
             >
-              <span className="absolute -left-12 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute -left-[40px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -233,16 +225,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             // Calculate position as percentage of chart width
             const percentX = (hourDiff / totalHours) * 100;
             
-            // Skip if the label would be off-chart
-            if (percentX < 0 || percentX > 100) return null;
-            
             return (
               <div 
                 key={`hour-${index}`} 
                 className="absolute"
-                style={{ left: `${percentX}%` }}
+                style={{ left: `${leftPadding + (percentX * (100 - leftPadding) / 100)}px` }}
               >
-                <div className="h-full w-px bg-border opacity-50 absolute top-[-220px]"></div>
+                <div className="h-full w-px bg-border opacity-50 absolute top-[-200px]"></div>
                 <div className="absolute -translate-x-1/2 text-xs text-muted-foreground font-medium whitespace-nowrap">
                   {formatTime(timePoint)}
                 </div>
@@ -256,7 +245,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${(((soberTime.getTime() - startTime.getTime()) / (60 * 60 * 1000)) / totalHours) * 100}%` 
+              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}px` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
@@ -329,12 +318,12 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         </svg>
       </div>
       
-      {/* Simple tooltip for the current point */}
+      {/* Tooltip for the current BAC */}
       {chartData.length > 0 && (
         <div
-          className="absolute bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border -translate-x-1/2 -translate-y-full z-20"
+          className="absolute bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border -translate-y-full z-20"
           style={{ 
-            left: `${leftPadding}px`, 
+            left: `${leftPadding + 10}px`, 
             top: `${getYCoordinate(chartData[0].bac) - 10}px`
           }}
         >
@@ -353,7 +342,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Calculate percentage based on total hours
     const percent = hoursSinceStart / totalHours;
     
-    // Left padding for y-axis labels + percentage of remaining width
+    // Adjust for left padding
     return leftPadding + percent * (100 - leftPadding);
   }
   
@@ -362,8 +351,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     if (roundedMaxBac === 0) return chartHeight - 5; // Handle edge case
     
     const percent = bac / roundedMaxBac;
-    // Leave 5% padding at the top, 5% at the bottom
-    return chartHeight - (percent * (chartHeight - 10) + 5);
+    // Leave 5% padding at the top
+    return chartHeight - (percent * chartHeight);
   }
 };
 
