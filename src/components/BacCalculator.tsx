@@ -42,7 +42,7 @@ const BacCalculator: React.FC = () => {
     const intervalId = setInterval(() => {
       console.log("Interval update triggered");
       setRefreshTrigger(Date.now()); // Use timestamp for better trigger
-    }, 2000); // Update even more frequently (2 seconds) for responsive chart
+    }, 10000); // Update less frequently (10 seconds) to reduce flicker
     
     return () => {
       console.log("Clearing BAC update interval");
@@ -94,7 +94,7 @@ const BacCalculator: React.FC = () => {
     const newDrinks = [...drinks, drink];
     setDrinks(newDrinks);
     
-    // Force immediate update
+    // Force immediate update but don't trigger re-render of chart component
     setRefreshTrigger(Date.now());
     
     // Show toast notification
@@ -110,7 +110,7 @@ const BacCalculator: React.FC = () => {
     const newDrinks = drinks.filter(drink => drink.id !== id);
     setDrinks(newDrinks);
     
-    // Force immediate update
+    // Force immediate update but don't trigger re-render of chart component
     setRefreshTrigger(Date.now());
   };
   
@@ -134,9 +134,6 @@ const BacCalculator: React.FC = () => {
     // Force a fresh calculation by using the current time
     setRefreshTrigger(Date.now());
   };
-
-  // Generate a key for the chart to force remounting when drinks change
-  const chartKey = `bac-chart-${drinks.length}-${refreshTrigger}`;
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -170,9 +167,8 @@ const BacCalculator: React.FC = () => {
           />
         </div>
         
-        {/* BAC Chart - use key to force remount when drinks change */}
+        {/* BAC Chart - pass data and soberTime as props but don't use key that would force remount */}
         <BacChart 
-          key={chartKey}
           data={bacData} 
           soberTime={soberTime}
         />

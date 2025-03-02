@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -10,14 +10,32 @@ interface BacChartGraphProps {
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const [chartData, setChartData] = useState<any[]>([]);
+  // Track previous data length to avoid unnecessary recalculations
+  const prevDataLength = useRef<number>(0);
+  const prevSoberTime = useRef<Date | null>(null);
 
   // Transform data for recharts whenever input data changes
   useEffect(() => {
+    // Check if data or soberTime has actually changed meaningfully
+    const soberTimeChanged = prevSoberTime.current?.getTime() !== soberTime?.getTime();
+    const dataLengthChanged = prevDataLength.current !== data.length;
+    
+    if (!dataLengthChanged && !soberTimeChanged && chartData.length > 0) {
+      console.log("Skipping chart data update - no meaningful changes");
+      return;
+    }
+    
+    // Update refs to current values
+    prevDataLength.current = data.length;
+    prevSoberTime.current = soberTime || null;
+    
     if (data.length === 0) {
       setChartData([]);
       return;
     }
 
+    console.log("Updating chart data with new values, data length:", data.length);
+    
     // Get current time
     const now = new Date();
     
@@ -159,7 +177,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       currentTick += 60 * 60 * 1000; // Add 1 hour
     }
     
-    console.log("Hourly ticks:", ticks.map(t => formatTimeForDisplay(new Date(t))));
     return ticks;
   };
 
@@ -179,11 +196,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       now.getTime() + 60 * 60 * 1000 // At least 1 hour from now
     );
     
-    console.log("X domain:", [
-      formatTimeForDisplay(new Date(xMin)),
-      formatTimeForDisplay(new Date(xMax + (15 * 60 * 1000)))
-    ]);
-    
     return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes padding at end
   };
 
@@ -194,21 +206,15 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
-  
-  // Get current time - ensure we're using the latest time
-  const now = new Date();
 
-  // Calculate ticks and domain - recalculate these every time the component renders
+  // Calculate ticks and domain - these can change on each render if needed
   const hourlyTicks = getHourlyTicks();
   const xDomain = getXDomain();
-
-  // Force chart to redraw completely when data changes
-  const chartKey = `bac-chart-${data.length}-${now.getTime()}`;
 
   return (
     <div className="h-64 w-full">
       {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
