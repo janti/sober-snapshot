@@ -1,13 +1,16 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { BacAxisLabels } from './BacAxisLabels';
 import { BacLegalLimitLines } from './BacLegalLimitLines';
 import { BacLineGraph } from './BacLineGraph';
 import { BacDataPoint } from './types';
+
 interface BacChartGraphProps {
   data: BacDataPoint[];
   soberTime?: Date | null;
 }
+
 const BacChartGraph: React.FC<BacChartGraphProps> = ({
   data,
   soberTime
@@ -87,40 +90,36 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   // Calculate total duration in hours
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
 
-  // Generate time markers for x-axis
+  // Generate time markers for x-axis (hour intervals starting from now)
   const hourMarks: Date[] = [];
 
-  // Start with current time (now)
+  // Always add current time as first marker
   hourMarks.push(new Date(now));
 
-  // Add hour markers at regular intervals
-  let currentHour = new Date(now);
-  // Round to the next hour
-  const nextHour = new Date(now);
-  nextHour.setMinutes(0, 0, 0);
-  nextHour.setHours(nextHour.getHours() + 1);
-
-  // Determine interval based on total hours
-  let hourInterval = 1; // Default to 1 hour intervals
-  if (totalHours > 12) {
-    hourInterval = 3;
-  } else if (totalHours > 6) {
-    hourInterval = 2;
-  }
-
-  // Add the next rounded hour if it's at least 15 minutes away
-  if (nextHour.getTime() - now.getTime() > 15 * 60 * 1000) {
-    hourMarks.push(new Date(nextHour));
-    currentHour = new Date(nextHour);
-  }
-
-  // Add remaining hours
-  while (hourMarks.length < 6 && currentHour < endTime) {
-    const nextTime = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
-    if (nextTime <= endTime) {
-      hourMarks.push(nextTime);
+  // Generate hourly markers
+  for (let i = 1; i <= Math.min(8, Math.ceil(totalHours)); i++) {
+    const markerTime = new Date(now.getTime() + i * 60 * 60 * 1000);
+    if (markerTime <= endTime) {
+      hourMarks.push(markerTime);
     }
-    currentHour = nextTime;
+  }
+
+  // If sober time doesn't fall on an hour mark and it's our end point, add it
+  if (soberTime && soberTime > now) {
+    const soberHour = soberTime.getHours();
+    const soberMinute = soberTime.getMinutes();
+    
+    // Check if sober time is not already included in hour marks
+    const isSoberTimeIncluded = hourMarks.some(mark => 
+      mark.getHours() === soberHour && mark.getMinutes() === soberMinute
+    );
+    
+    if (!isSoberTimeIncluded) {
+      // Add sober time as the last marker if it's not already included
+      hourMarks.push(soberTime);
+      // Sort marks by time to ensure proper order
+      hourMarks.sort((a, b) => a.getTime() - b.getTime());
+    }
   }
 
   // Generate y-axis BAC value markers
