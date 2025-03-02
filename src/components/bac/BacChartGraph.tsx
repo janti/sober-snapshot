@@ -131,21 +131,22 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Calculate hourly ticks for X-axis with whole hour intervals
+  // Calculate hourly ticks for X-axis with even hour intervals
   const getHourlyTicks = () => {
     if (chartData.length === 0) return [];
     
     // Get current time
     const now = new Date();
     
-    // Find the next whole hour time
+    // Find the nearest future whole hour
     const nextWholeHour = new Date(now);
-    nextWholeHour.setHours(nextWholeHour.getHours() + 1, 0, 0, 0); // Next hour, 0 minutes
+    // Go to next whole hour (e.g., 10:00, 11:00)
+    nextWholeHour.setHours(nextWholeHour.getHours() + (nextWholeHour.getMinutes() > 0 ? 1 : 0), 0, 0, 0);
     
     // Find the latest timestamp in our data
     const lastTimestamp = chartData[chartData.length - 1].timestamp;
     
-    // Generate hourly ticks starting from next whole hour
+    // Generate ticks
     const ticks = [];
     
     // Always add current time as first tick
@@ -158,6 +159,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       currentTick += 60 * 60 * 1000; // Add 1 hour
     }
     
+    console.log("Hourly ticks:", ticks.map(t => formatTimeForDisplay(new Date(t))));
     return ticks;
   };
 
@@ -175,6 +177,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       chartData[chartData.length - 1].timestamp,
       now.getTime() + 60 * 60 * 1000 // At least 1 hour from now
     );
+    
+    console.log("X domain:", [
+      formatTimeForDisplay(new Date(xMin)),
+      formatTimeForDisplay(new Date(xMax + (15 * 60 * 1000)))
+    ]);
     
     return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes padding at end
   };
