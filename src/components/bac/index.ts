@@ -1,7 +1,7 @@
 
 // Re-export existing components
-export * from './BacHeader';
-export * from './ResetButton';
+export { default as BacHeader } from './BacHeader';
+export { default as ResetButton } from './ResetButton';
 export { default as CurrentBacDisplay } from './CurrentBacDisplay';
 export { default as BacTimeToSober } from './BacTimeToSober';
 

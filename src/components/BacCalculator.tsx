@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   UserData, 
@@ -9,9 +8,8 @@ import {
 } from '@/utils/bacCalculation';
 import UserForm from './UserForm';
 import DrinkSelector from './DrinkSelector';
-import BacChart from './BacChart';
 import { useToast } from '@/components/ui/use-toast';
-import { CurrentBacDisplay, BacHeader, ResetButton } from './bac';
+import { BacChart, CurrentBacDisplay, BacHeader, ResetButton } from './bac';
 
 const BacCalculator: React.FC = () => {
   const { toast } = useToast();
