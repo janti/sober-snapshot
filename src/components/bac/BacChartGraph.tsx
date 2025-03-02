@@ -12,7 +12,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     timestamp: point.time.getTime(),
     time: point.time.toLocaleTimeString([], { 
       hour: '2-digit', 
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false
     }),
     bac: point.bac,
     bacFormatted: (point.bac * 10).toFixed(1)
@@ -24,6 +25,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false
     });
   };
 

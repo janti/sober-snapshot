@@ -36,7 +36,7 @@ const BacSoberTime: React.FC<BacSoberTimeProps> = ({ soberTime }) => {
         Sober at {soberTime.toLocaleTimeString([], { 
           hour: '2-digit', 
           minute: '2-digit',
-          hour12: true
+          hour12: false
         })}
       </div>
     </div>

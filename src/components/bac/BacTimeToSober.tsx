@@ -50,7 +50,7 @@ const BacTimeToSober: React.FC<BacTimeToSoberProps> = ({ soberTime }) => {
           Estimated sober at {soberTime.toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: true
+            hour12: false
           })}
         </div>
       </CardContent>
