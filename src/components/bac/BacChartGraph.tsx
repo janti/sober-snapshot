@@ -33,9 +33,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Calculate max BAC for scaling (with minimum of 0.1)
-  const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
-  
   // If no data, show placeholder
   if (chartData.length === 0) {
     return (
@@ -45,18 +42,21 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     );
   }
 
+  // Calculate max BAC for scaling (with minimum of 0.1)
+  const maxBac = Math.max(...chartData.map(d => d.bac), LEGAL_LIMITS.regular * 1.5);
+  
   // Get start and end times for the chart
   const startTime = chartData[0].time;
   const endTime = chartData[chartData.length - 1].time;
   
-  // Calculate a nice hour interval
+  // Calculate total hours for the chart
   const totalHours = (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000);
   
-  // Create hour marks - aim for 5-7 marks
+  // Create hour interval - aim for 4-8 marks
   let hourInterval = 1; // Default to 1 hour
   if (totalHours > 12) {
     hourInterval = 3;
-  } else if (totalHours > 7) {
+  } else if (totalHours > 6) {
     hourInterval = 2;
   }
   
@@ -77,13 +77,35 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     currentHour.setHours(currentHour.getHours() + hourInterval);
   }
 
+  // Create BAC level marks with appropriate intervals
+  const bacMarks = [];
+  // Determine a nice interval based on max BAC
+  let bacInterval = 0.02; // default for small values
+  if (maxBac > 0.4) {
+    bacInterval = 0.1;
+  } else if (maxBac > 0.2) {
+    bacInterval = 0.05;
+  }
+  
+  let currentBac = 0;
+  while (currentBac <= maxBac * 1.1) { // Go a bit beyond max for nicer display
+    bacMarks.push(currentBac);
+    currentBac += bacInterval;
+  }
+
   return (
     <div className="w-full h-full relative">
       {/* Draw the grid */}
       <div className="absolute inset-0 border-b border-l border-border">
         {/* Horizontal grid lines and Y-axis labels */}
-        {[0, 0.25, 0.5, 0.75, 1].map((level) => {
+        {bacMarks.map((level) => {
+          // Skip if level is above our display range
+          if (level > maxBac * 1.1) return null;
+          
           const percentY = 100 - (level / maxBac) * 100;
+          // Skip if the label would be off-chart
+          if (percentY < 0 || percentY > 100) return null;
+          
           return (
             <div 
               key={`y-${level}`} 
@@ -98,34 +120,41 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         })}
         
         {/* Draw legal limit lines */}
-        <div 
-          className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
-          style={{ 
-            top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
-            zIndex: 5
-          }}
-        >
-          <span className="absolute right-0 -top-5 text-xs text-destructive">
-            Regular Limit ({(LEGAL_LIMITS.regular * 10).toFixed(1)}‰)
-          </span>
-        </div>
+        {LEGAL_LIMITS.regular <= maxBac && (
+          <div 
+            className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
+            style={{ 
+              top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
+              zIndex: 5
+            }}
+          >
+            <span className="absolute right-0 -top-5 text-xs text-destructive">
+              Regular Limit ({(LEGAL_LIMITS.regular * 10).toFixed(1)}‰)
+            </span>
+          </div>
+        )}
         
-        <div 
-          className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
-          style={{ 
-            top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
-            zIndex: 5
-          }}
-        >
-          <span className="absolute right-0 -top-5 text-xs text-amber-500">
-            Professional Limit ({(LEGAL_LIMITS.professional * 10).toFixed(1)}‰)
-          </span>
-        </div>
+        {LEGAL_LIMITS.professional <= maxBac && (
+          <div 
+            className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
+            style={{ 
+              top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
+              zIndex: 5
+            }}
+          >
+            <span className="absolute right-0 -top-5 text-xs text-amber-500">
+              Professional Limit ({(LEGAL_LIMITS.professional * 10).toFixed(1)}‰)
+            </span>
+          </div>
+        )}
         
         {/* X-axis hour marks */}
         {hourMarks.map((timePoint, index) => {
           const percentX = ((timePoint.getTime() - startTime.getTime()) / 
-                          (endTime.getTime() - startTime.getTime())) * 100;
+                         (endTime.getTime() - startTime.getTime())) * 100;
+          
+          // Skip if the label would be off-chart
+          if (percentX < 0 || percentX > 100) return null;
           
           return (
             <div 
@@ -232,9 +261,9 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Helper functions to calculate coordinates
   function getXCoordinate(time: Date): number {
-    const startTime = chartData[0].time.getTime();
-    const endTime = chartData[chartData.length - 1].time.getTime();
-    const percent = (time.getTime() - startTime) / (endTime - startTime);
+    const chartStartTime = chartData[0].time.getTime();
+    const chartEndTime = chartData[chartData.length - 1].time.getTime();
+    const percent = (time.getTime() - chartStartTime) / (chartEndTime - chartStartTime);
     // Leave 5% padding on each side
     return 5 + percent * 90;
   }
@@ -247,9 +276,9 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
   
   function getXPercent(time: Date): number {
-    const startTime = chartData[0].time.getTime();
-    const endTime = chartData[chartData.length - 1].time.getTime();
-    return ((time.getTime() - startTime) / (endTime - startTime)) * 100;
+    const chartStartTime = chartData[0].time.getTime();
+    const chartEndTime = chartData[chartData.length - 1].time.getTime();
+    return ((time.getTime() - chartStartTime) / (chartEndTime - chartStartTime)) * 100;
   }
   
   function getYPercent(bac: number): number {
