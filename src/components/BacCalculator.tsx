@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   UserData, 
@@ -9,7 +10,7 @@ import {
 import UserForm from './UserForm';
 import DrinkSelector from './DrinkSelector';
 import { useToast } from '@/components/ui/use-toast';
-import { BacChart, CurrentBacDisplay, BacHeader, ResetButton } from './bac';
+import { BacHeader, CurrentBacDisplay, ResetButton, BacSoberTime } from './bac';
 
 const BacCalculator: React.FC = () => {
   const { toast } = useToast();
@@ -22,9 +23,6 @@ const BacCalculator: React.FC = () => {
   
   // Drinks list
   const [drinks, setDrinks] = useState<DrinkData[]>([]);
-  
-  // BAC data for the chart
-  const [bacData, setBacData] = useState<{ time: Date; bac: number }[]>([]);
   
   // Time when user is estimated to be sober
   const [soberTime, setSoberTime] = useState<Date | null>(null);
@@ -53,7 +51,6 @@ const BacCalculator: React.FC = () => {
     console.log("Updating BAC calculations, drinks:", drinks.length);
     
     if (userData.weight <= 0 || drinks.length === 0) {
-      setBacData([]);
       setSoberTime(null);
       setCurrentBac(0);
       return;
@@ -61,19 +58,6 @@ const BacCalculator: React.FC = () => {
     
     // Calculate estimated sober time
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
-    
-    // Determine start and end times for calculation
-    const startTime = new Date();
-    
-    // Set end time to at least sober time + 2 hours or 24 hours from now
-    const endTime = new Date(Math.max(
-      estimatedSoberTime ? estimatedSoberTime.getTime() + 2 * 60 * 60 * 1000 : 0,
-      new Date().getTime() + 24 * 60 * 60 * 1000
-    ));
-    
-    // Calculate BAC points with straight-line interpolation
-    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 30);
-    setBacData(bacPoints);
     
     // Get current BAC
     const currentBacValue = getCurrentBac(userData, drinks);
@@ -113,7 +97,6 @@ const BacCalculator: React.FC = () => {
     console.log("Resetting calculator");
     setDrinks([]);
     setCurrentBac(0);
-    setBacData([]);
     setSoberTime(null);
     
     toast({
@@ -142,29 +125,28 @@ const BacCalculator: React.FC = () => {
         onRefresh={refreshCalculations} 
       />
       
-      {/* Main content grid */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        <div className="space-y-6">
-          {/* User information */}
-          <UserForm 
-            userData={userData} 
-            onChange={setUserData} 
-          />
-          
-          {/* Drink selection */}
-          <DrinkSelector 
-            drinks={drinks}
-            onAddDrink={handleAddDrink}
-            onRemoveDrink={handleRemoveDrink}
-            onClearDrinks={handleReset}
-          />
-        </div>
-        
-        {/* BAC Chart with timestamp of last data update to force proper refresh */}
-        <BacChart 
-          data={bacData} 
-          soberTime={soberTime}
+      {/* Main content */}
+      <div className="space-y-6 mb-8">
+        {/* User information */}
+        <UserForm 
+          userData={userData} 
+          onChange={setUserData} 
         />
+        
+        {/* Drink selection */}
+        <DrinkSelector 
+          drinks={drinks}
+          onAddDrink={handleAddDrink}
+          onRemoveDrink={handleRemoveDrink}
+          onClearDrinks={handleReset}
+        />
+        
+        {/* Display sober time if available */}
+        {soberTime && (
+          <div className="mt-6">
+            <BacSoberTime soberTime={soberTime} />
+          </div>
+        )}
       </div>
       
       {/* Reset button */}
