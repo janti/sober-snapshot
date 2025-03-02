@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -8,6 +8,14 @@ interface BacChartGraphProps {
 }
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
+  // Use a key to force re-render when data changes
+  const chartKey = useRef(0);
+  
+  useEffect(() => {
+    // Increment key to force full re-render when data changes
+    chartKey.current += 1;
+  }, [data.length]);
+
   const chartData = data.map(point => ({
     timestamp: point.time.getTime(),
     time: point.time.toLocaleTimeString([], { 
@@ -36,7 +44,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" key={chartKey.current}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
