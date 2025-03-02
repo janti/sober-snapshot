@@ -7,7 +7,8 @@ import {
   DrinkData, 
   LEGAL_LIMITS,
   calculateBacOverTime,
-  calculateTimeTillSober
+  calculateTimeTillSober,
+  getCurrentBac
 } from '@/utils/bacCalculation';
 import UserForm from './UserForm';
 import DrinkSelector from './DrinkSelector';
@@ -41,15 +42,22 @@ const BacCalculator: React.FC = () => {
   
   // Set up interval to update current BAC regularly
   useEffect(() => {
+    console.log("Setting up BAC update interval");
     const intervalId = setInterval(() => {
+      console.log("Interval update triggered");
       setRefreshTrigger(prev => prev + 1);
-    }, 30000); // Update every 30 seconds
+    }, 5000); // Update every 5 seconds for more responsive updates
     
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log("Clearing BAC update interval");
+      clearInterval(intervalId);
+    };
   }, []);
   
   // Update calculations when user data or drinks change
   useEffect(() => {
+    console.log("Updating BAC calculations, drinks:", drinks.length, "refreshTrigger:", refreshTrigger);
+    
     if (userData.weight <= 0 || drinks.length === 0) {
       setBacData([]);
       setSoberTime(null);
@@ -57,7 +65,7 @@ const BacCalculator: React.FC = () => {
       return;
     }
     
-    // Calculate BAC over time
+    // Calculate BAC over time for the chart
     const startTime = drinks.length > 0 
       ? new Date(Math.min(...drinks.map(d => d.timestamp.getTime())))
       : new Date();
@@ -71,22 +79,10 @@ const BacCalculator: React.FC = () => {
     const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
     setBacData(bacPoints);
     
-    // Get current BAC - find the closest point to now
-    const now = new Date();
-    
-    // Find the point closest to current time
-    let closestPoint = bacPoints[0];
-    let minTimeDiff = Math.abs(closestPoint.time.getTime() - now.getTime());
-    
-    for (const point of bacPoints) {
-      const timeDiff = Math.abs(point.time.getTime() - now.getTime());
-      if (timeDiff < minTimeDiff) {
-        minTimeDiff = timeDiff;
-        closestPoint = point;
-      }
-    }
-    
-    setCurrentBac(closestPoint?.bac || 0);
+    // Get current BAC using dedicated function
+    const currentBacValue = getCurrentBac(userData, drinks);
+    console.log("Updated current BAC:", currentBacValue);
+    setCurrentBac(currentBacValue);
     
     // Calculate time until sober
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
@@ -96,6 +92,7 @@ const BacCalculator: React.FC = () => {
   
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
+    console.log("Adding drink:", drink.name);
     setDrinks(prev => [...prev, drink]);
     setRefreshTrigger(prev => prev + 1); // Force immediate update
     
@@ -108,12 +105,14 @@ const BacCalculator: React.FC = () => {
   
   // Handle removing a drink
   const handleRemoveDrink = (id: string) => {
+    console.log("Removing drink with ID:", id);
     setDrinks(prev => prev.filter(drink => drink.id !== id));
     setRefreshTrigger(prev => prev + 1); // Force immediate update
   };
   
   // Handle resetting the calculator
   const handleReset = () => {
+    console.log("Resetting calculator");
     setDrinks([]);
     setCurrentBac(0);
     setBacData([]);
@@ -137,7 +136,9 @@ const BacCalculator: React.FC = () => {
 
   // Update BAC calculation when the component is first loaded or on manual refresh
   const refreshCalculations = () => {
-    setRefreshTrigger(prev => prev + 1);
+    console.log("Manual refresh triggered");
+    // Force a fresh calculation by using the current time
+    setRefreshTrigger(Date.now());
   };
 
   return (

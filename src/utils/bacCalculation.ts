@@ -76,6 +76,14 @@ export function calculateBacOverTime(
     currentTime = new Date(currentTime.getTime() + intervalMinutes * 60 * 1000);
   }
   
+  // Always include the current time as a data point for most accurate current BAC
+  const exactNow = new Date();
+  if (!timePoints.find(t => t.getTime() === exactNow.getTime())) {
+    timePoints.push(exactNow);
+    // Re-sort to maintain chronological order
+    timePoints.sort((a, b) => a.getTime() - b.getTime());
+  }
+  
   // Calculate BAC at each time point
   return timePoints.map(time => {
     // Include all drinks consumed before this time point
@@ -99,6 +107,31 @@ export function calculateBacOverTime(
       bac: parseFloat(totalBac.toFixed(4))
     };
   });
+}
+
+// Get current BAC value
+export function getCurrentBac(
+  user: UserData,
+  drinks: DrinkData[]
+): number {
+  if (drinks.length === 0 || user.weight <= 0) return 0;
+  
+  const now = new Date();
+  
+  // Calculate BAC at current time only
+  let totalBac = 0;
+  drinks.forEach(drink => {
+    const initialBac = calculateBacForDrink(user, drink);
+    
+    // Calculate time elapsed since this drink in hours
+    const hoursSinceDrink = (now.getTime() - drink.timestamp.getTime()) / (60 * 60 * 1000);
+    
+    // Subtract metabolism over time
+    const remainingBac = Math.max(0, initialBac - (METABOLISM_RATE * hoursSinceDrink));
+    totalBac += remainingBac;
+  });
+  
+  return parseFloat(totalBac.toFixed(4));
 }
 
 // Calculate time until sober (BAC < 0.01%)
