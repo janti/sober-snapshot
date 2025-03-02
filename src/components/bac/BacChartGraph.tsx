@@ -62,9 +62,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     }
   }
   
-  // Generate a unique key based on the timeline extent to force complete re-renders
-  const chartKey = `chart-${minTimestamp}-${maxTimestamp}-${data.length}-${soberTime?.getTime() || 0}`;
-  
   // Calculate time range to determine tick frequency
   const timeRange = maxTimestamp - minTimestamp;
   
@@ -78,7 +75,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
