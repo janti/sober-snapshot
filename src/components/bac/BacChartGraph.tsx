@@ -43,7 +43,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
 
   // Calculate max BAC for scaling (with minimum of 0.1)
-  const maxBac = Math.max(...chartData.map(d => d.bac), LEGAL_LIMITS.regular * 1.5);
+  const maxBac = Math.max(0.1, ...chartData.map(d => d.bac));
   
   // Get start and end times for the chart
   const startTime = chartData[0].time;
@@ -87,10 +87,18 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     bacInterval = 0.05;
   }
   
-  let currentBac = 0;
-  while (currentBac <= maxBac * 1.1) { // Go a bit beyond max for nicer display
-    bacMarks.push(currentBac);
-    currentBac += bacInterval;
+  // Generate BAC marks from 0 up to maxBac (plus a little extra for display)
+  for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
+    bacMarks.push(level);
+  }
+
+  // Ensure we have at least 3 BAC marks regardless of the calculated interval
+  if (bacMarks.length < 3) {
+    bacMarks.length = 0;
+    bacInterval = maxBac / 4;
+    for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
+      bacMarks.push(level);
+    }
   }
 
   return (
@@ -98,7 +106,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       {/* Draw the grid */}
       <div className="absolute inset-0 border-b border-l border-border">
         {/* Horizontal grid lines and Y-axis labels */}
-        {bacMarks.map((level) => {
+        {bacMarks.map((level, index) => {
           // Skip if level is above our display range
           if (level > maxBac * 1.1) return null;
           
@@ -108,7 +116,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           
           return (
             <div 
-              key={`y-${level}`} 
+              key={`y-${index}`} 
               className="absolute w-full border-t border-border border-opacity-50"
               style={{ top: `${percentY}%` }}
             >
