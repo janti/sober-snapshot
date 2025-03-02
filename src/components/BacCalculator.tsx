@@ -63,10 +63,7 @@ const BacCalculator: React.FC = () => {
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
     
     // Determine start and end times for calculation
-    const startTime = new Date(Math.min(
-      ...drinks.map(d => d.timestamp.getTime()),
-      new Date().getTime()
-    ));
+    const startTime = new Date();
     
     // Set end time to at least sober time + 2 hours or 24 hours from now
     const endTime = new Date(Math.max(
@@ -74,8 +71,8 @@ const BacCalculator: React.FC = () => {
       new Date().getTime() + 24 * 60 * 60 * 1000
     ));
     
-    // Calculate BAC points at 10-minute intervals
-    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
+    // Calculate BAC points with straight-line interpolation
+    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 30);
     setBacData(bacPoints);
     
     // Get current BAC
