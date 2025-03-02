@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -8,14 +8,7 @@ interface BacChartGraphProps {
 }
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
-  // Use state to force re-renders instead of just a ref
-  const [chartKey, setChartKey] = useState(0);
-  
-  useEffect(() => {
-    // Force chart to completely re-render when data changes
-    setChartKey(prev => prev + 1);
-  }, [data]);
-
+  // Transform the data for the chart with proper time formatting
   const chartData = data.map(point => ({
     timestamp: point.time.getTime(),
     time: point.time.toLocaleTimeString([], { 
@@ -27,8 +20,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     bacFormatted: (point.bac * 10).toFixed(1)
   }));
 
+  // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
+  // Functions for formatting chart values
   const formatXAxis = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: '2-digit',
@@ -41,26 +36,27 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
-  // Set explicit domain for X axis to ensure it shows the full time range
+  // Explicitly set X-axis domain to ensure it shows the full time range
   const xDomain = chartData.length > 0 ? 
-    [
-      chartData[0].timestamp, 
-      chartData[chartData.length - 1].timestamp
-    ] : 
+    [chartData[0].timestamp, chartData[chartData.length - 1].timestamp] : 
     ['dataMin', 'dataMax'];
     
-  // Check if we need more frequent ticks based on time range
+  // Calculate time range to determine tick frequency
   const timeRange = chartData.length > 1 ? 
     chartData[chartData.length - 1].timestamp - chartData[0].timestamp : 
     0;
     
   // For short time spans, use more frequent ticks
-  const minTickGap = timeRange < 3600000 ? 10 : 20; // 1 hour threshold
+  const minTickGap = timeRange < 3600000 ? 5 : 15; // 1 hour threshold
+
+  // Use a unique key for the ResponsiveContainer based on data length and timestamps
+  // This forces React to completely remount the chart when data changes significantly
+  const containerKey = `chart-${data.length}-${data.length > 0 ? data[0].time.getTime() : 0}-${data.length > 0 ? data[data.length-1].time.getTime() : 0}`;
 
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%" key={`chart-${chartKey}`}>
+        <ResponsiveContainer width="100%" height="100%" key={containerKey}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
