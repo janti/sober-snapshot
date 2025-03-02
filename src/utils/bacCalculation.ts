@@ -1,3 +1,4 @@
+
 export interface UserData {
   gender: 'male' | 'female';
   weight: number;
@@ -63,7 +64,7 @@ export function calculateBacOverTime(
   // Use current time as the start time always for chart display
   const now = new Date();
   
-  // Generate time points between current time and end time
+  // Generate time points starting from current time to end time
   const timePoints: Date[] = [];
   let currentTime = new Date(now);
   
@@ -79,9 +80,9 @@ export function calculateBacOverTime(
     timePoints.sort((a, b) => a.getTime() - b.getTime());
   }
   
-  // For better context, add a few points from the past (last 30 minutes)
+  // For better context, add a few points from the past (last 5 minutes only)
   const pastPoints: Date[] = [];
-  let pastTime = new Date(now.getTime() - 30 * 60 * 1000);
+  let pastTime = new Date(now.getTime() - 5 * 60 * 1000);
   while (pastTime < now) {
     pastPoints.push(new Date(pastTime));
     pastTime = new Date(pastTime.getTime() + intervalMinutes * 60 * 1000);

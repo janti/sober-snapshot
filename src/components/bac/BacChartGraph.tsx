@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
@@ -31,15 +32,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Sort data by timestamp to ensure chronological order
     transformedData.sort((a, b) => a.timestamp - b.timestamp);
 
-    // Find the current time data point or closest to it
-    const currentTimeIndex = transformedData.findIndex(
-      point => point.timestamp >= now.getTime()
-    );
-
-    // Filter to only show current time forward (plus a small buffer for context)
+    // Filter to only show current time forward
     const filteredData = transformedData.filter(point => {
-      // Keep only points from the last 10 minutes before now and all future points
-      return point.timestamp >= now.getTime() - 10 * 60 * 1000;
+      // Only show points from current time onward
+      // Include a little buffer (5 minutes) before current time to show trend
+      return point.timestamp >= now.getTime() - 5 * 60 * 1000;
     });
 
     // If we have a sober time and it's not already in our data, add it to the chart
@@ -58,25 +55,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       }
     }
 
-    // Make sure we have at least one data point
-    if (filteredData.length === 0 && transformedData.length > 0) {
-      // If all points were filtered out, keep the current time point
-      const currentTimePoint = {
-        timestamp: now.getTime(),
-        time: formatTimeForDisplay(now),
-        bac: transformedData[transformedData.length - 1].bac,
-        bacFormatted: transformedData[transformedData.length - 1].bacFormatted
-      };
-      filteredData.push(currentTimePoint);
-    }
-
-    // Ensure we have a current time point
+    // Make sure we have at least the current time point
     const hasCurrentTime = filteredData.some(
       point => Math.abs(point.timestamp - now.getTime()) < 60 * 1000
     );
 
     if (!hasCurrentTime && filteredData.length > 0) {
-      // Interpolate BAC value for current time
+      // Find or interpolate BAC value for current time
       let currentBac = 0;
       
       // Find points before and after current time
@@ -111,10 +96,26 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       // Re-sort to maintain chronological order
       filteredData.sort((a, b) => a.timestamp - b.timestamp);
     }
+
+    // Ensure we have future data points for a meaningful chart
+    if (filteredData.length <= 1) {
+      // Add a point 1 hour from now with same BAC (or declining if above 0)
+      const currentBac = filteredData.length > 0 ? filteredData[0].bac : 0;
+      const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+      const bacOneHourLater = Math.max(0, currentBac - 0.015); // Subtract metabolism rate
+      
+      filteredData.push({
+        timestamp: oneHourLater.getTime(),
+        time: formatTimeForDisplay(oneHourLater),
+        bac: bacOneHourLater,
+        bacFormatted: (bacOneHourLater * 10).toFixed(1)
+      });
+    }
     
     setChartData(filteredData);
     
     console.log("Chart data updated:", {
+      currentTime: formatTimeForDisplay(now),
       dataLength: filteredData.length,
       firstPoint: filteredData.length > 0 ? filteredData[0].time : "none",
       lastPoint: filteredData.length > 0 ? filteredData[filteredData.length - 1].time : "none",
@@ -131,35 +132,27 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Format timestamp for X-axis display
-  const formatXAxis = (timestamp: number) => {
-    return formatTimeForDisplay(new Date(timestamp));
-  };
-
-  // Calculate hourly ticks for X-axis - starting from current hour
+  // Calculate hourly ticks for X-axis starting exactly from current time
   const getHourlyTicks = () => {
     if (chartData.length === 0) return [];
     
-    // Get current time and round to nearest hour
+    // Get current time rounded to nearest minute
     const now = new Date();
-    const currentHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0, 0, 0
-    );
+    now.setSeconds(0, 0); // Zero out seconds and milliseconds
     
-    // Find the earliest and latest timestamps in our data
-    const firstTimestamp = chartData[0].timestamp;
+    // Find the latest timestamp in our data
     const lastTimestamp = chartData[chartData.length - 1].timestamp;
     
-    // Generate hourly ticks starting from current hour
+    // Generate hourly ticks starting from current time
     const ticks = [];
-    let currentTick = currentHour.getTime();
+    let currentTick = now.getTime();
     
-    // Add ticks from current hour until end of chart (plus one extra hour)
-    while (currentTick <= lastTimestamp + (60 * 60 * 1000)) {
+    // Always add current time as first tick
+    ticks.push(currentTick);
+    
+    // Add hourly ticks until we cover the chart range
+    currentTick += 60 * 60 * 1000; // Start with +1 hour
+    while (currentTick <= lastTimestamp + (15 * 60 * 1000)) {
       ticks.push(currentTick);
       currentTick += 60 * 60 * 1000; // Add 1 hour
     }
@@ -171,12 +164,19 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const getXDomain = () => {
     if (chartData.length === 0) return [0, 1];
     
-    const now = new Date().getTime();
-    const xMin = Math.min(now, chartData[0].timestamp);
-    const xMax = chartData[chartData.length - 1].timestamp;
+    const now = new Date();
+    now.setSeconds(0, 0); // Zero out seconds
     
-    // Extend the domain slightly for better visualization
-    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes to the end
+    // Start domain exactly at current time
+    const xMin = now.getTime();
+    
+    // End domain at the last data point plus a small buffer
+    const xMax = Math.max(
+      chartData[chartData.length - 1].timestamp,
+      now.getTime() + 60 * 60 * 1000 // At least 1 hour from now
+    );
+    
+    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes to the end for padding
   };
 
   // Format tooltip values
@@ -187,13 +187,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
-  // Calculate ticks and domain only when chart data changes
+  // Calculate ticks and domain
   const hourlyTicks = getHourlyTicks();
   const xDomain = getXDomain();
 
   return (
     <div className="h-64 w-full">
-      {chartData.length > 1 ? (
+      {chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
@@ -211,13 +211,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               type="number"
               domain={xDomain}
               scale="time"
-              tickFormatter={formatXAxis} 
+              tickFormatter={formatXAxis}
               ticks={hourlyTicks}
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
               tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
-              allowDataOverflow={false}
+              allowDataOverflow={true}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
@@ -286,6 +286,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       )}
     </div>
   );
+  
+  // Format timestamp for X-axis display
+  function formatXAxis(timestamp: number) {
+    return formatTimeForDisplay(new Date(timestamp));
+  }
 };
 
 export default BacChartGraph;
