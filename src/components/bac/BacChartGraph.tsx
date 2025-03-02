@@ -41,6 +41,22 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
+  // Set explicit domain for X axis to ensure it shows the full time range
+  const xDomain = chartData.length > 0 ? 
+    [
+      chartData[0].timestamp, 
+      chartData[chartData.length - 1].timestamp
+    ] : 
+    ['dataMin', 'dataMax'];
+    
+  // Check if we need more frequent ticks based on time range
+  const timeRange = chartData.length > 1 ? 
+    chartData[chartData.length - 1].timestamp - chartData[0].timestamp : 
+    0;
+    
+  // For short time spans, use more frequent ticks
+  const minTickGap = timeRange < 3600000 ? 10 : 20; // 1 hour threshold
+
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
@@ -63,11 +79,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
               stroke="#C8C8C9"
               strokeWidth={1.5}
               tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
-              domain={['dataMin', 'dataMax']}
+              domain={xDomain}
               type="number"
               scale="time"
               allowDataOverflow
-              minTickGap={20}
+              minTickGap={minTickGap}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
