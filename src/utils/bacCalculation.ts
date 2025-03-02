@@ -52,7 +52,7 @@ export function calculateBacForDrink(
 export function calculateBacOverTime(
   user: UserData,
   drinks: DrinkData[],
-  startTime: Date = new Date(), // Default to current time instead of earliest drink
+  startTime: Date = new Date(), // Default to current time
   endTime: Date = new Date(new Date().getTime() + 12 * 60 * 60 * 1000), // Look ahead 12 hours
   intervalMinutes: number = 10
 ): { time: Date; bac: number }[] {
@@ -60,22 +60,12 @@ export function calculateBacOverTime(
 
   const sortedDrinks = [...drinks].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
-  // Find the earliest drink time if we have drinks
-  const earliestDrinkTime = sortedDrinks.length > 0 ? 
-    new Date(sortedDrinks[0].timestamp) : 
-    new Date();
-  
-  // Use the current time as the start time ONLY if it's later than the earliest drink time
-  // Otherwise, use 30 minutes before the current time to show recent history
+  // Use current time as the start time always for chart display
   const now = new Date();
-  const actualStartTime = new Date(Math.min(
-    now.getTime(),
-    Math.max(earliestDrinkTime.getTime(), now.getTime() - 30 * 60 * 1000)
-  ));
   
-  // Generate time points between start and end
+  // Generate time points between current time and end time
   const timePoints: Date[] = [];
-  let currentTime = new Date(actualStartTime);
+  let currentTime = new Date(now);
   
   while (currentTime <= endTime) {
     timePoints.push(new Date(currentTime));
@@ -89,8 +79,20 @@ export function calculateBacOverTime(
     timePoints.sort((a, b) => a.getTime() - b.getTime());
   }
   
+  // For better context, add a few points from the past (last 30 minutes)
+  const pastPoints: Date[] = [];
+  let pastTime = new Date(now.getTime() - 30 * 60 * 1000);
+  while (pastTime < now) {
+    pastPoints.push(new Date(pastTime));
+    pastTime = new Date(pastTime.getTime() + intervalMinutes * 60 * 1000);
+  }
+  
+  // Combine all time points
+  const allTimePoints = [...pastPoints, ...timePoints];
+  allTimePoints.sort((a, b) => a.getTime() - b.getTime());
+  
   // Calculate BAC at each time point
-  return timePoints.map(time => {
+  return allTimePoints.map(time => {
     // Include all drinks consumed before this time point
     const relevantDrinks = sortedDrinks.filter(drink => drink.timestamp <= time);
     
