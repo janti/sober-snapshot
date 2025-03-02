@@ -63,9 +63,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   }, [data, soberTime]);
 
-  // Functions for formatting chart values
+  // Format time to show hour only (e.g., "10:00")
   const formatXAxis = (timestamp: number) => {
-    // Format to show only hour in HH:00 format
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], {
       hour: '2-digit',
@@ -113,15 +112,20 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
-  // Calculate domain for X axis
-  const xMin = chartData.length > 0 ? chartData[0].timestamp : 0;
-  // Ensure xMax includes soberTime if it exists
-  const xMax = soberTime && soberTime.getTime() > (chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0)
-    ? soberTime.getTime()
-    : chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+  // Force re-calculation of domain for X-axis on every render
+  const xDomain = React.useMemo(() => {
+    if (chartData.length === 0) return [0, 1];
+    
+    const xMin = chartData[0].timestamp;
+    const xMax = soberTime && soberTime.getTime() > chartData[chartData.length - 1].timestamp
+      ? soberTime.getTime()
+      : chartData[chartData.length - 1].timestamp;
+    
+    return [xMin, xMax];
+  }, [chartData, soberTime]);
 
-  // Generate hourly ticks
-  const hourlyTicks = generateHourlyTicks();
+  // Generate hourly ticks, recalculate on every render
+  const hourlyTicks = React.useMemo(() => generateHourlyTicks(), [chartData, soberTime]);
 
   return (
     <div className="h-64 w-full">
@@ -141,7 +145,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             <XAxis 
               dataKey="timestamp" 
               type="number"
-              domain={[xMin, xMax]}
+              domain={xDomain}
               scale="time"
               tickFormatter={formatXAxis} 
               ticks={hourlyTicks}
