@@ -1,9 +1,9 @@
-
 import React from 'react';
 import BacCalculator from '@/components/BacCalculator';
 import { Button } from '@/components/ui/button';
 import { Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Index = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -49,6 +49,13 @@ const Index = () => {
       </div>
       
       <div className="container py-8 px-4 sm:py-12">
+        {/* Finnish disclaimer */}
+        <Alert className="mb-6 border-amber-500">
+          <AlertDescription className="text-sm font-medium">
+            Ohjelma on tehty vain teknologian testaamiseen ja sitä ei saa käyttää määrittämään todellista alkoholin määrää veressä. Sovelluksen käyttäjä toimii omalla vastuulla.
+          </AlertDescription>
+        </Alert>
+        
         <BacCalculator />
         
         <footer className="mt-12 text-center text-sm text-muted-foreground">
