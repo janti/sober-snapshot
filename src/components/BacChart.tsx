@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
@@ -13,26 +12,30 @@ interface BacChartProps {
 }
 
 const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
-  // Ensure data is properly formatted for the chart
+  // Convert data to a format that Recharts can understand
   const chartData = data.map(point => ({
-    time: point.time,
-    timeFormatted: point.time.toLocaleTimeString([], { 
+    // Use timestamp for X axis
+    timestamp: point.time.getTime(),
+    // Format time for display
+    time: point.time.toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit'
     }),
+    // Keep BAC as a number for the chart
     bac: point.bac,
-    bacFormatted: (point.bac * 10).toFixed(1) // Convert to permille for display
+    // Format BAC for display in permille
+    bacFormatted: (point.bac * 10).toFixed(1)
   }));
 
   const currentBac = data.length > 0 ? data[data.length - 1].bac : 0;
-  // Ensure we have a reasonable scale that won't collapse when BAC is very low
-  const maxBac = Math.max(...data.map(d => d.bac), 0.1); // Ensure at least 0.1 for scale
+  // Set a min scale to avoid collapsing when BAC is low
+  const maxBac = Math.max(...data.map(d => d.bac), 0.1);
   
   const isAboveRegularLimit = currentBac > LEGAL_LIMITS.regular;
   const isAboveProfessionalLimit = currentBac > LEGAL_LIMITS.professional;
 
-  const formatXAxis = (tickItem: Date) => {
-    return tickItem.toLocaleTimeString([], {
+  const formatXAxis = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -97,7 +100,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="h-64 w-full">
-          {data.length > 0 ? (
+          {chartData.length > 1 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={chartData}
@@ -111,7 +114,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.7} />
                 <XAxis 
-                  dataKey="time" 
+                  dataKey="timestamp" 
                   tickFormatter={formatXAxis} 
                   tick={{ fontSize: 12 }}
                   stroke="var(--muted-foreground)"
@@ -133,14 +136,8 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 />
                 <Tooltip 
                   formatter={formatTooltipValue}
-                  labelFormatter={value => {
-                    if (value instanceof Date) {
-                      return value.toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      });
-                    }
-                    return value;
+                  labelFormatter={(value) => {
+                    return formatXAxis(value as number);
                   }}
                   contentStyle={{
                     backgroundColor: 'var(--background)',
@@ -189,7 +186,9 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground">
-              No data to display yet. Add some drinks to see your BAC chart.
+              {data.length === 0 
+                ? "No data to display yet. Add some drinks to see your BAC chart." 
+                : "Add more data points to display the chart."}
             </div>
           )}
         </div>
