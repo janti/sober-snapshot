@@ -115,10 +115,10 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <XAxis 
                   dataKey="timestamp" 
                   tickFormatter={formatXAxis} 
-                  tick={{ fontSize: 12, fill: "currentColor" }}
-                  stroke="currentColor"
+                  tick={{ fontSize: 12, fill: "#C8C8C9" }}
+                  stroke="#C8C8C9"
                   strokeWidth={1.5}
-                  tickLine={{ stroke: 'currentColor', strokeWidth: 1.5 }}
+                  tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
                   domain={['dataMin', 'dataMax']}
                   type="number"
                   scale="time"
@@ -127,11 +127,11 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <YAxis 
                   tickFormatter={value => `${(value * 10).toFixed(1)}`}
                   domain={[0, maxBac * 1.1]} 
-                  tick={{ fontSize: 12, fill: "currentColor" }}
+                  tick={{ fontSize: 12, fill: "#C8C8C9" }}
                   unit="‰"
-                  stroke="currentColor"
+                  stroke="#C8C8C9"
                   strokeWidth={1.5}
-                  tickLine={{ stroke: 'currentColor', strokeWidth: 1.5 }}
+                  tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
                   allowDecimals={true}
                   minTickGap={10}
                 />
