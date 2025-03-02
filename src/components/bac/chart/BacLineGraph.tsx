@@ -29,30 +29,38 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
   const createPath = () => {
     if (chartData.length < 2) return '';
     
-    const x1 = coordinates.getXCoordinate(chartData[0].time);
-    const y1 = coordinates.getYCoordinate(chartData[0].bac);
-    const x2 = coordinates.getXCoordinate(chartData[1].time);
-    const y2 = coordinates.getYCoordinate(chartData[1].bac);
+    // Start with the first point
+    let path = `M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}`;
     
-    return `M ${x1}% ${y1} L ${x2}% ${y2}`;
+    // Add line segments to each subsequent point
+    for (let i = 1; i < chartData.length; i++) {
+      path += ` L ${coordinates.getXCoordinate(chartData[i].time)}% ${coordinates.getYCoordinate(chartData[i].bac)}`;
+    }
+    
+    return path;
   };
 
   // Create area under the path
   const createAreaPath = () => {
     if (chartData.length < 2) return '';
     
-    const x1 = coordinates.getXCoordinate(chartData[0].time);
-    const y1 = coordinates.getYCoordinate(chartData[0].bac);
-    const x2 = coordinates.getXCoordinate(chartData[1].time);
-    const y2 = coordinates.getYCoordinate(chartData[1].bac);
+    // Start with the first point
+    let path = `M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}`;
     
-    return `
-      M ${x1}% ${y1}
-      L ${x2}% ${y2}
-      L ${x2}% ${chartHeight}
-      L ${x1}% ${chartHeight}
-      Z
-    `;
+    // Add line segments to each subsequent point
+    for (let i = 1; i < chartData.length; i++) {
+      path += ` L ${coordinates.getXCoordinate(chartData[i].time)}% ${coordinates.getYCoordinate(chartData[i].bac)}`;
+    }
+    
+    // Complete the area by drawing lines to the bottom and back to the start
+    const lastPointX = coordinates.getXCoordinate(chartData[chartData.length - 1].time);
+    const firstPointX = coordinates.getXCoordinate(chartData[0].time);
+    
+    path += ` L ${lastPointX}% ${chartHeight}`;  // Line down from last point
+    path += ` L ${firstPointX}% ${chartHeight}`;  // Line across the bottom
+    path += ' Z';  // Close the path
+    
+    return path;
   };
 
   return (
@@ -65,34 +73,19 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           </linearGradient>
         </defs>
         
-        {chartData.length >= 2 ? (
-          <>
-            {/* Fill area under the line */}
-            <path
-              d={createAreaPath()}
-              fill="url(#bacGradient)"
-            />
-            
-            {/* Draw the line itself */}
-            <path
-              d={createPath()}
-              stroke="hsl(var(--primary))"
-              strokeWidth="2.5"
-              fill="none"
-            />
-          </>
-        ) : (
-          // Fallback for single data point
-          <path
-            d={`
-              M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}
-              L ${coordinates.getXCoordinate(new Date(chartData[0].time.getTime() + 3 * 60 * 60 * 1000))}% ${coordinates.getYCoordinate(chartData[0].bac)}
-            `}
-            stroke="hsl(var(--primary))"
-            strokeWidth="2.5"
-            fill="none"
-          />
-        )}
+        {/* Fill area under the line */}
+        <path
+          d={createAreaPath()}
+          fill="url(#bacGradient)"
+        />
+        
+        {/* Draw the line itself */}
+        <path
+          d={createPath()}
+          stroke="hsl(var(--primary))"
+          strokeWidth="2.5"
+          fill="none"
+        />
         
         {/* Add tooltips for data points */}
         {chartData.map((point, index) => (
