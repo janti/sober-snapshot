@@ -37,11 +37,15 @@ const BacCalculator: React.FC = () => {
   
   // Set up interval to update current BAC regularly
   useEffect(() => {
+    console.log("Setting up BAC update interval");
     const intervalId = setInterval(() => {
       setRefreshCounter(prev => prev + 1);
     }, 30000); // Update every 30 seconds
     
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log("Clearing BAC update interval");
+      clearInterval(intervalId);
+    };
   }, []);
   
   // Update calculations when user data, drinks, or refresh counter changes
@@ -72,32 +76,7 @@ const BacCalculator: React.FC = () => {
     
     // Calculate BAC points at 10-minute intervals
     const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
-    
-    // Ensure we always have at least 10 data points for a good visualization
-    if (bacPoints.length < 10) {
-      const totalDuration = endTime.getTime() - startTime.getTime();
-      const interval = totalDuration / 9; // 9 intervals to get 10 points
-      
-      const enhancedPoints: { time: Date; bac: number }[] = [];
-      for (let i = 0; i < 10; i++) {
-        const pointTime = new Date(startTime.getTime() + i * interval);
-        
-        // Find the closest actual point or interpolate
-        const closestPoint = bacPoints.reduce((prev, curr) => {
-          return Math.abs(curr.time.getTime() - pointTime.getTime()) < 
-                 Math.abs(prev.time.getTime() - pointTime.getTime()) ? curr : prev;
-        }, bacPoints[0]);
-        
-        enhancedPoints.push({
-          time: pointTime,
-          bac: closestPoint.bac
-        });
-      }
-      
-      setBacData(enhancedPoints);
-    } else {
-      setBacData(bacPoints);
-    }
+    setBacData(bacPoints);
     
     // Get current BAC
     const currentBacValue = getCurrentBac(userData, drinks);
@@ -111,8 +90,7 @@ const BacCalculator: React.FC = () => {
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
     console.log("Adding drink:", drink.name);
-    const newDrinks = [...drinks, drink];
-    setDrinks(newDrinks);
+    setDrinks(prevDrinks => [...prevDrinks, drink]);
     
     // Force immediate update with new timestamp
     setRefreshCounter(Date.now());
@@ -127,8 +105,7 @@ const BacCalculator: React.FC = () => {
   // Handle removing a drink
   const handleRemoveDrink = (id: string) => {
     console.log("Removing drink with ID:", id);
-    const newDrinks = drinks.filter(drink => drink.id !== id);
-    setDrinks(newDrinks);
+    setDrinks(prevDrinks => prevDrinks.filter(drink => drink.id !== id));
     
     // Force immediate update with new timestamp
     setRefreshCounter(Date.now());
@@ -151,7 +128,7 @@ const BacCalculator: React.FC = () => {
   // Update BAC calculation when the component is first loaded or on manual refresh
   const refreshCalculations = () => {
     console.log("Manual refresh triggered");
-    setRefreshCounter(prev => prev + 1);
+    setRefreshCounter(Date.now());
   };
 
   return (

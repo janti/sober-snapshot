@@ -12,6 +12,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Process data when it changes
   useEffect(() => {
+    console.log("Chart data updated with", data.length, "points");
+    
     if (data.length === 0) {
       setChartData([]);
       return;
@@ -22,7 +24,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     setChartData(sortedData);
   }, [data]);
 
-  // Format time for display
+  // Format time for display - using hours only
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -41,6 +43,38 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         Add drinks to see your BAC chart
       </div>
     );
+  }
+
+  // Get start and end times for the chart
+  const startTime = chartData[0].time;
+  const endTime = chartData[chartData.length - 1].time;
+  
+  // Calculate a nice hour interval
+  const totalHours = (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+  
+  // Create hour marks - aim for 5-7 marks
+  let hourInterval = 1; // Default to 1 hour
+  if (totalHours > 12) {
+    hourInterval = 3;
+  } else if (totalHours > 7) {
+    hourInterval = 2;
+  }
+  
+  // Generate hour marks
+  const hourMarks: Date[] = [];
+  
+  // Start from the first full hour
+  const firstHour = new Date(startTime);
+  firstHour.setMinutes(0, 0, 0);
+  if (firstHour.getTime() < startTime.getTime()) {
+    firstHour.setHours(firstHour.getHours() + 1);
+  }
+  
+  // Add hour marks at regular intervals
+  let currentHour = new Date(firstHour);
+  while (currentHour.getTime() <= endTime.getTime()) {
+    hourMarks.push(new Date(currentHour));
+    currentHour.setHours(currentHour.getHours() + hourInterval);
   }
 
   return (
@@ -88,21 +122,20 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           </span>
         </div>
         
-        {/* X-axis time labels - show 5 evenly spaced points */}
-        {chartData.length > 0 && Array.from({ length: 5 }).map((_, i) => {
-          const index = Math.floor(i * (chartData.length - 1) / 4);
-          const dataPoint = chartData[index];
-          const percentX = (i * 100) / 4;
+        {/* X-axis hour marks */}
+        {hourMarks.map((timePoint, index) => {
+          const percentX = ((timePoint.getTime() - startTime.getTime()) / 
+                          (endTime.getTime() - startTime.getTime())) * 100;
           
           return (
             <div 
-              key={`x-${i}`} 
+              key={`hour-${index}`} 
               className="absolute h-full"
               style={{ left: `${percentX}%` }}
             >
               <div className="absolute bottom-0 transform -translate-x-1/2 -translate-y-[-24px]">
-                <span className="text-xs text-muted-foreground">
-                  {formatTime(dataPoint.time)}
+                <span className="text-xs text-muted-foreground font-medium">
+                  {formatTime(timePoint)}
                 </span>
               </div>
               <div className="h-full w-px bg-border opacity-50"></div>
@@ -115,8 +148,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${((soberTime.getTime() - chartData[0].time.getTime()) / 
-                      (chartData[chartData.length - 1].time.getTime() - chartData[0].time.getTime())) * 100}%` 
+              left: `${((soberTime.getTime() - startTime.getTime()) / 
+                      (endTime.getTime() - startTime.getTime())) * 100}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
