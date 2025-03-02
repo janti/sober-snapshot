@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -8,13 +8,13 @@ interface BacChartGraphProps {
 }
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
-  // Use a key to force re-render when data changes
-  const chartKey = useRef(0);
+  // Use state to force re-renders instead of just a ref
+  const [chartKey, setChartKey] = useState(0);
   
   useEffect(() => {
-    // Increment key to force full re-render when data changes
-    chartKey.current += 1;
-  }, [data.length]);
+    // Force chart to completely re-render when data changes
+    setChartKey(prev => prev + 1);
+  }, [data]);
 
   const chartData = data.map(point => ({
     timestamp: point.time.getTime(),
@@ -44,7 +44,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%" key={chartKey.current}>
+        <ResponsiveContainer width="100%" height="100%" key={`chart-${chartKey}`}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
@@ -67,7 +67,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
               type="number"
               scale="time"
               allowDataOverflow
-              minTickGap={30}
+              minTickGap={20}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
