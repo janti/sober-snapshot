@@ -59,6 +59,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
               type="number"
               scale="time"
               allowDataOverflow
+              minTickGap={30}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
@@ -86,6 +87,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
               }}
               itemStyle={{ color: 'var(--foreground)' }}
               labelStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }}
+              isAnimationActive={false}
             />
             <ReferenceLine 
               y={LEGAL_LIMITS.regular} 
@@ -115,8 +117,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
               stroke="hsl(var(--primary))" 
               fill="url(#bacColor)" 
               strokeWidth={2}
-              isAnimationActive={true}
-              animationDuration={500}
+              isAnimationActive={false}
               activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'var(--background)' }}
             />
           </AreaChart>
