@@ -9,23 +9,16 @@ interface BacChartGraphProps {
 }
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
-  // Transform the data for the chart with proper time formatting
   const [chartData, setChartData] = useState<any[]>([]);
-  const [minTimestamp, setMinTimestamp] = useState<number>(0);
-  const [maxTimestamp, setMaxTimestamp] = useState<number>(0);
-  const [timeRange, setTimeRange] = useState<number>(0);
-  const [minTickGap, setMinTickGap] = useState<number>(30);
 
   // Process data whenever it changes
   useEffect(() => {
     if (data.length === 0) {
       setChartData([]);
-      setMinTimestamp(0);
-      setMaxTimestamp(0);
       return;
     }
 
-    // Transform data for recharts
+    // Transform data for recharts with consistent formatting
     const transformedData = data.map(point => ({
       timestamp: point.time.getTime(),
       time: point.time.toLocaleTimeString([], { 
@@ -37,16 +30,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       bacFormatted: (point.bac * 10).toFixed(1)
     }));
 
-    // Calculate time boundaries
-    let min = transformedData.length > 0 ? transformedData[0].timestamp : 0;
-    let max = transformedData.length > 0 ? transformedData[transformedData.length - 1].timestamp : 0;
-    
-    // If we have a sober time, make sure the chart extends to include it
-    if (soberTime && soberTime.getTime() > max) {
-      max = soberTime.getTime();
-      
-      // Add the sober time point if we have data
-      if (transformedData.length > 0) {
+    // If we have a sober time and it's after our last data point, add it to the chart
+    if (soberTime && transformedData.length > 0) {
+      const lastTimestamp = transformedData[transformedData.length - 1].timestamp;
+      if (soberTime.getTime() > lastTimestamp) {
         transformedData.push({
           timestamp: soberTime.getTime(),
           time: soberTime.toLocaleTimeString([], { 
@@ -60,31 +47,12 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       }
     }
 
-    // Ensure we have at least a reasonable time range if the data points are too close
-    if (max - min < 1800000) { // Less than 30 min
-      max = min + 1800000; // Show at least 30 min
-    }
-
-    // Calculate tick frequency based on time range
-    const range = max - min;
-    const tickGap = range < 1800000 ? 3 : // less than 30 min
-                   range < 3600000 ? 5 : // less than 1 hour
-                   range < 7200000 ? 10 : // less than 2 hours
-                   range < 14400000 ? 15 : // less than 4 hours
-                   30; // default for longer periods
-
     setChartData(transformedData);
-    setMinTimestamp(min);
-    setMaxTimestamp(max);
-    setTimeRange(range);
-    setMinTickGap(tickGap);
-
-    console.log("Chart data updated:", {
+    
+    console.log("Chart data updated with transformed data:", {
       dataLength: transformedData.length,
-      min,
-      max,
-      range,
-      tickGap,
+      firstPoint: transformedData.length > 0 ? transformedData[0].time : null,
+      lastPoint: transformedData.length > 0 ? transformedData[transformedData.length - 1].time : null,
       hasSoberTime: !!soberTime
     });
   }, [data, soberTime]);
@@ -105,6 +73,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
+  // Calculate domain for X axis
+  const xMin = chartData.length > 0 ? chartData[0].timestamp : 0;
+  const xMax = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
@@ -123,14 +95,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             <XAxis 
               dataKey="timestamp" 
               type="number"
+              domain={[xMin, xMax]}
               scale="time"
-              domain={[minTimestamp, maxTimestamp]}
               tickFormatter={formatXAxis} 
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
               tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
-              minTickGap={minTickGap}
               allowDataOverflow={false}
             />
             <YAxis 
@@ -142,7 +113,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               strokeWidth={1.5}
               tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
               allowDecimals={true}
-              minTickGap={10}
             />
             <Tooltip 
               formatter={formatTooltipValue}
