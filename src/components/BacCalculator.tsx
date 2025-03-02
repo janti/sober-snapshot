@@ -38,14 +38,14 @@ const BacCalculator: React.FC = () => {
   const [currentBac, setCurrentBac] = useState(0);
 
   // Force refresh of calculations
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(Date.now());
   
   // Set up interval to update current BAC regularly
   useEffect(() => {
     console.log("Setting up BAC update interval");
     const intervalId = setInterval(() => {
       console.log("Interval update triggered");
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger(Date.now()); // Use timestamp for better trigger
     }, 5000); // Update every 5 seconds for more responsive updates
     
     return () => {
@@ -86,6 +86,7 @@ const BacCalculator: React.FC = () => {
     
     // Calculate time until sober
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
+    console.log("Updated sober time:", estimatedSoberTime);
     setSoberTime(estimatedSoberTime);
     
   }, [userData, drinks, refreshTrigger]);
@@ -94,12 +95,12 @@ const BacCalculator: React.FC = () => {
   const handleAddDrink = (drink: DrinkData) => {
     console.log("Adding drink:", drink.name);
     setDrinks(prev => [...prev, drink]);
-    setRefreshTrigger(prev => prev + 1); // Force immediate update
+    setRefreshTrigger(Date.now()); // Force immediate update with timestamp
     
     // Show toast notification
     toast({
       title: "Drink added",
-      description: `${drink.name} (${drink.units} units)`,
+      description: `${drink.name} (${drink.units.toFixed(1)} units)`,
     });
   };
   
@@ -107,7 +108,7 @@ const BacCalculator: React.FC = () => {
   const handleRemoveDrink = (id: string) => {
     console.log("Removing drink with ID:", id);
     setDrinks(prev => prev.filter(drink => drink.id !== id));
-    setRefreshTrigger(prev => prev + 1); // Force immediate update
+    setRefreshTrigger(Date.now()); // Force immediate update with timestamp
   };
   
   // Handle resetting the calculator

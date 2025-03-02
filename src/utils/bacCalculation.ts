@@ -142,16 +142,32 @@ export function calculateTimeTillSober(
 ): Date | null {
   if (drinks.length === 0 || user.weight <= 0) return null;
 
-  const bacPoints = calculateBacOverTime(
-    user,
-    drinks,
-    new Date(Math.min(...drinks.map(d => d.timestamp.getTime()))),
-    new Date(currentTime.getTime() + 24 * 60 * 60 * 1000), // Look ahead 24 hours max
-    30 // 30-minute intervals
-  );
+  // Get current BAC
+  const currentBac = getCurrentBac(user, drinks);
   
-  const soberPoint = bacPoints.find(point => point.bac < 0.001);
-  return soberPoint ? soberPoint.time : null;
+  // If already sober, return current time
+  if (currentBac < 0.001) {
+    return currentTime;
+  }
+  
+  // Calculate how many hours needed to metabolize current BAC
+  // BAC decreases at rate of METABOLISM_RATE per hour
+  const hoursToSober = currentBac / METABOLISM_RATE;
+  
+  // Calculate sober time
+  const soberTime = new Date(currentTime.getTime() + hoursToSober * 60 * 60 * 1000);
+  
+  return soberTime;
+}
+
+// Calculate alcohol units (Finnish standard)
+export function calculateAlcoholUnits(volumeMl: number, alcoholPercentage: number): number {
+  // Finnish standard: 1 unit = 12g of pure alcohol
+  const pureAlcoholMl = (volumeMl * alcoholPercentage) / 100;
+  const pureAlcoholGrams = pureAlcoholMl * ALCOHOL_DENSITY;
+  const units = pureAlcoholGrams / 12;
+  
+  return parseFloat(units.toFixed(1));
 }
 
 // Finnish alcohol units reference data
