@@ -1,4 +1,3 @@
-
 export interface UserData {
   gender: 'male' | 'female';
   weight: number;
@@ -53,23 +52,30 @@ export function calculateBacForDrink(
 export function calculateBacOverTime(
   user: UserData,
   drinks: DrinkData[],
-  startTime: Date = new Date(Math.min(...drinks.map(d => d.timestamp.getTime()))),
-  endTime: Date = new Date(new Date().getTime() + 12 * 60 * 60 * 1000),
+  startTime: Date = new Date(), // Default to current time instead of earliest drink
+  endTime: Date = new Date(new Date().getTime() + 12 * 60 * 60 * 1000), // Look ahead 12 hours
   intervalMinutes: number = 10
 ): { time: Date; bac: number }[] {
   if (drinks.length === 0 || user.weight <= 0) return [];
 
   const sortedDrinks = [...drinks].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
-  // Ensure startTime is not after the current time
+  // Find the earliest drink time if we have drinks
+  const earliestDrinkTime = sortedDrinks.length > 0 ? 
+    new Date(sortedDrinks[0].timestamp) : 
+    new Date();
+  
+  // Use the current time as the start time ONLY if it's later than the earliest drink time
+  // Otherwise, use 30 minutes before the current time to show recent history
   const now = new Date();
-  if (startTime > now) {
-    startTime = now;
-  }
+  const actualStartTime = new Date(Math.min(
+    now.getTime(),
+    Math.max(earliestDrinkTime.getTime(), now.getTime() - 30 * 60 * 1000)
+  ));
   
   // Generate time points between start and end
   const timePoints: Date[] = [];
-  let currentTime = new Date(startTime);
+  let currentTime = new Date(actualStartTime);
   
   while (currentTime <= endTime) {
     timePoints.push(new Date(currentTime));
@@ -77,9 +83,8 @@ export function calculateBacOverTime(
   }
   
   // Always include the current time as a data point for most accurate current BAC
-  const exactNow = new Date();
-  if (!timePoints.find(t => t.getTime() === exactNow.getTime())) {
-    timePoints.push(exactNow);
+  if (!timePoints.find(t => Math.abs(t.getTime() - now.getTime()) < 60 * 1000)) {
+    timePoints.push(now);
     // Re-sort to maintain chronological order
     timePoints.sort((a, b) => a.getTime() - b.getTime());
   }
