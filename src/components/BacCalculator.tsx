@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   UserData, 
@@ -33,15 +32,15 @@ const BacCalculator: React.FC = () => {
   // Current status
   const [currentBac, setCurrentBac] = useState(0);
 
-  // Force refresh of calculations
-  const [refreshTrigger, setRefreshTrigger] = useState(Date.now());
+  // Force refresh of calculations (use timestamp to avoid reference issues)
+  const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
   
   // Set up interval to update current BAC regularly
   useEffect(() => {
     console.log("Setting up BAC update interval");
     const intervalId = setInterval(() => {
       console.log("Interval update triggered");
-      setRefreshTrigger(Date.now());
+      setRefreshTimestamp(Date.now());
     }, 30000); // Update every 30 seconds - less frequent to reduce rendering
     
     return () => {
@@ -50,9 +49,9 @@ const BacCalculator: React.FC = () => {
     };
   }, []);
   
-  // Update calculations when user data or drinks change
+  // Update calculations when user data, drinks, or refresh timestamp changes
   useEffect(() => {
-    console.log("Updating BAC calculations, drinks:", drinks.length, "refreshTrigger:", refreshTrigger);
+    console.log("Updating BAC calculations, drinks:", drinks.length, "refreshTimestamp:", refreshTimestamp);
     
     if (userData.weight <= 0 || drinks.length === 0) {
       setBacData([]);
@@ -67,13 +66,17 @@ const BacCalculator: React.FC = () => {
       new Date().getTime() // Include current time in the minimum calculation
     ));
       
-    // Look ahead 12 hours maximum from now (not from earliest drink)
+    // Look ahead 24 hours maximum from now or until sober (whichever is longer)
+    const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
+    
+    // Set end time to at least sober time + 1 hour or 24 hours from now
     const endTime = new Date(Math.max(
-      new Date().getTime() + 30 * 60 * 1000, // At least 30 minutes into future for better visualization
-      new Date().getTime() + 12 * 60 * 60 * 1000 // Maximum 12 hours from now
+      estimatedSoberTime ? estimatedSoberTime.getTime() + 60 * 60 * 1000 : 0, // 1 hour after sober
+      new Date().getTime() + 24 * 60 * 60 * 1000 // Max 24 hours from now
     ));
     
-    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 5); // Increase data point frequency to 5 min
+    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 5); // 5-minute intervals
+    console.log("Generated BAC points:", bacPoints.length);
     setBacData(bacPoints);
     
     // Get current BAC using dedicated function
@@ -81,12 +84,11 @@ const BacCalculator: React.FC = () => {
     console.log("Updated current BAC:", currentBacValue);
     setCurrentBac(currentBacValue);
     
-    // Calculate time until sober
-    const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
+    // Update sober time
     console.log("Updated sober time:", estimatedSoberTime);
     setSoberTime(estimatedSoberTime);
     
-  }, [userData, drinks, refreshTrigger]);
+  }, [userData, drinks, refreshTimestamp]);
   
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
@@ -94,10 +96,8 @@ const BacCalculator: React.FC = () => {
     const newDrinks = [...drinks, drink];
     setDrinks(newDrinks);
     
-    // Force immediate update
-    const timestamp = Date.now();
-    console.log("Forcing refresh with timestamp:", timestamp);
-    setRefreshTrigger(timestamp);
+    // Force immediate update with new timestamp
+    setRefreshTimestamp(Date.now());
     
     // Show toast notification
     toast({
@@ -112,10 +112,8 @@ const BacCalculator: React.FC = () => {
     const newDrinks = drinks.filter(drink => drink.id !== id);
     setDrinks(newDrinks);
     
-    // Force immediate update
-    const timestamp = Date.now();
-    console.log("Forcing refresh with timestamp:", timestamp);
-    setRefreshTrigger(timestamp);
+    // Force immediate update with new timestamp
+    setRefreshTimestamp(Date.now());
   };
   
   // Handle resetting the calculator
@@ -135,8 +133,8 @@ const BacCalculator: React.FC = () => {
   // Update BAC calculation when the component is first loaded or on manual refresh
   const refreshCalculations = () => {
     console.log("Manual refresh triggered");
-    // Force a fresh calculation by using the current time
-    setRefreshTrigger(Date.now());
+    // Force a fresh calculation with new timestamp
+    setRefreshTimestamp(Date.now());
   };
 
   return (

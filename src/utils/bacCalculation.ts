@@ -1,4 +1,3 @@
-
 export interface UserData {
   gender: 'male' | 'female';
   weight: number;
@@ -61,39 +60,33 @@ export function calculateBacOverTime(
 
   const sortedDrinks = [...drinks].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
-  // Use current time as the start time always for chart display
-  const now = new Date();
-  
-  // Generate time points starting from current time to end time
+  // Generate time points from start to end time
   const timePoints: Date[] = [];
-  let currentTime = new Date(now);
+  let currentTime = new Date(startTime);
+  
+  // Make sure we have at least the current time
+  const now = new Date();
+  let includesNow = false;
   
   while (currentTime <= endTime) {
     timePoints.push(new Date(currentTime));
+    
+    // Check if we're close to now
+    if (Math.abs(currentTime.getTime() - now.getTime()) < intervalMinutes * 30 * 1000) {
+      includesNow = true;
+    }
+    
     currentTime = new Date(currentTime.getTime() + intervalMinutes * 60 * 1000);
   }
   
-  // Always include the current time as a data point for most accurate current BAC
-  if (!timePoints.find(t => Math.abs(t.getTime() - now.getTime()) < 60 * 1000)) {
+  // If we don't have a point close to now, add it
+  if (!includesNow) {
     timePoints.push(new Date(now));
-    // Re-sort to maintain chronological order
     timePoints.sort((a, b) => a.getTime() - b.getTime());
   }
   
-  // For better context, add a few points from the past (last 5 minutes only)
-  const pastPoints: Date[] = [];
-  let pastTime = new Date(now.getTime() - 5 * 60 * 1000);
-  while (pastTime < now) {
-    pastPoints.push(new Date(pastTime));
-    pastTime = new Date(pastTime.getTime() + intervalMinutes * 60 * 1000);
-  }
-  
-  // Combine all time points
-  const allTimePoints = [...pastPoints, ...timePoints];
-  allTimePoints.sort((a, b) => a.getTime() - b.getTime());
-  
   // Calculate BAC at each time point
-  return allTimePoints.map(time => {
+  return timePoints.map(time => {
     // Include all drinks consumed before this time point
     const relevantDrinks = sortedDrinks.filter(drink => drink.timestamp <= time);
     

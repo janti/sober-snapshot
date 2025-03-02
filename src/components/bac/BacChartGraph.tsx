@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -10,12 +11,6 @@ interface BacChartGraphProps {
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const [chartData, setChartData] = useState<any[]>([]);
   
-  // Use refs to minimize re-renders while still tracking changes
-  const dataRef = useRef<{ time: Date; bac: number }[]>([]);
-  const soberTimeRef = useRef<Date | null>(null);
-  const chartDataRef = useRef<any[]>([]);
-  const lastUpdateRef = useRef<number>(0);
-  
   // Format time consistently across the component
   const formatTimeForDisplay = (date: Date): string => {
     return date.toLocaleTimeString([], { 
@@ -25,57 +20,12 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Deep compare function for data arrays to prevent unnecessary updates
-  const hasDataChanged = (oldData: any[], newData: any[]): boolean => {
-    if (oldData.length !== newData.length) return true;
-    
-    // First check time values and length
-    if (oldData.length !== newData.length) return true;
-    
-    // Check if soberTime changed
-    const oldSoberTime = soberTimeRef.current?.getTime();
-    const newSoberTime = soberTime?.getTime();
-    if (oldSoberTime !== newSoberTime) return true;
-    
-    // Check if enough time has passed since last update (at least 5 seconds)
-    const now = Date.now();
-    if (now - lastUpdateRef.current > 5000) return true;
-    
-    // If lengths are same but both are 0, consider it unchanged
-    if (oldData.length === 0 && newData.length === 0) return false;
-    
-    // Extra step: explicitly check the first and last data points
-    if (oldData.length > 0 && newData.length > 0) {
-      const firstNew = newData[0].time.getTime();
-      const firstOld = oldData[0].time.getTime();
-      const lastNew = newData[newData.length - 1].time.getTime();
-      const lastOld = oldData[oldData.length - 1].time.getTime();
-      
-      if (Math.abs(firstNew - firstOld) > 1000 || Math.abs(lastNew - lastOld) > 1000) {
-        return true;
-      }
-    }
-    
-    return false;
-  };
-
   // Transform data for recharts whenever input data changes
   useEffect(() => {
-    // Skip update if nothing meaningful changed to prevent re-renders
-    if (!hasDataChanged(dataRef.current, data) && chartData.length > 0) {
-      return;
-    }
-    
-    console.log("Updating chart data with new values, data length:", data.length);
-    
-    // Update refs
-    dataRef.current = [...data];
-    soberTimeRef.current = soberTime || null;
-    lastUpdateRef.current = Date.now();
+    console.log("Processing new BAC data for chart, points:", data.length);
     
     if (data.length === 0) {
       setChartData([]);
-      chartDataRef.current = [];
       return;
     }
     
@@ -83,7 +33,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     const now = new Date();
     
     // Transform data for recharts with consistent formatting
-    const transformedData = data.map(point => ({
+    let transformedData = data.map(point => ({
       timestamp: point.time.getTime(),
       time: formatTimeForDisplay(point.time),
       bac: point.bac,
@@ -92,160 +42,96 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
     // Sort data by timestamp to ensure chronological order
     transformedData.sort((a, b) => a.timestamp - b.timestamp);
-
-    // Filter to only show current time forward
-    const filteredData = transformedData.filter(point => {
-      // Only show points from current time onward or 5 minutes before for context
-      return point.timestamp >= now.getTime() - 5 * 60 * 1000;
-    });
+    
+    // Filter to show only current and future data points
+    transformedData = transformedData.filter(point => 
+      point.timestamp >= now.getTime() - 5 * 60 * 1000 // Include 5 min before now for context
+    );
 
     // If we have a sober time and it's not already in our data, add it to the chart
-    if (soberTime && filteredData.length > 0) {
+    if (soberTime && transformedData.length > 0) {
       const soberTimestamp = soberTime.getTime();
-      const lastDataPoint = filteredData[filteredData.length - 1];
       
-      // Only add the sober time point if it's in the future and not already represented
-      if (soberTimestamp > now.getTime() && soberTimestamp > lastDataPoint.timestamp) {
-        filteredData.push({
+      // Check if sober time is already represented in our data points
+      const soberTimeExists = transformedData.some(point => 
+        Math.abs(point.timestamp - soberTimestamp) < 60 * 1000
+      );
+      
+      // Only add the sober time point if it's not already represented
+      if (!soberTimeExists && soberTimestamp > now.getTime()) {
+        transformedData.push({
           timestamp: soberTimestamp,
           time: formatTimeForDisplay(soberTime),
           bac: 0.001, // Almost zero BAC at sober time
           bacFormatted: "0.0"
         });
-      }
-    }
-
-    // Make sure we have at least the current time point
-    const hasCurrentTime = filteredData.some(
-      point => Math.abs(point.timestamp - now.getTime()) < 60 * 1000
-    );
-
-    if (!hasCurrentTime && filteredData.length > 0) {
-      // Find or interpolate BAC value for current time
-      let currentBac = 0;
-      
-      // Find points before and after current time
-      const beforePoints = transformedData.filter(p => p.timestamp <= now.getTime());
-      const afterPoints = transformedData.filter(p => p.timestamp > now.getTime());
-      
-      if (beforePoints.length > 0 && afterPoints.length > 0) {
-        // We can interpolate
-        const beforePoint = beforePoints[beforePoints.length - 1];
-        const afterPoint = afterPoints[0];
         
-        // Linear interpolation
-        const timeFraction = (now.getTime() - beforePoint.timestamp) / 
-                            (afterPoint.timestamp - beforePoint.timestamp);
-        currentBac = beforePoint.bac + timeFraction * (afterPoint.bac - beforePoint.bac);
-      } else if (beforePoints.length > 0) {
-        // Use the last point before now
-        currentBac = beforePoints[beforePoints.length - 1].bac;
-      } else if (afterPoints.length > 0) {
-        // Use the first point after now
-        currentBac = afterPoints[0].bac;
+        // Re-sort after adding
+        transformedData.sort((a, b) => a.timestamp - b.timestamp);
       }
-      
-      // Add the current time point
-      filteredData.push({
-        timestamp: now.getTime(),
-        time: formatTimeForDisplay(now),
-        bac: currentBac,
-        bacFormatted: (currentBac * 10).toFixed(1)
-      });
-      
-      // Re-sort to maintain chronological order
-      filteredData.sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    // Ensure we have future data points for a meaningful chart
-    if (filteredData.length <= 1) {
-      // Add a point 1 hour from now with same BAC (or declining if above 0)
-      const currentBac = filteredData.length > 0 ? filteredData[0].bac : 0;
-      const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-      const bacOneHourLater = Math.max(0, currentBac - 0.015); // Subtract metabolism rate
+    // Make sure the chart always extends at least 1 hour into future for better visualization
+    const lastPoint = transformedData[transformedData.length - 1];
+    if (lastPoint && lastPoint.timestamp < now.getTime() + 60 * 60 * 1000) {
+      const oneHourLater = new Date(Math.max(
+        now.getTime() + 60 * 60 * 1000,
+        lastPoint.timestamp + 5 * 60 * 1000 // At least 5 minutes after last point
+      ));
       
-      filteredData.push({
+      transformedData.push({
         timestamp: oneHourLater.getTime(),
         time: formatTimeForDisplay(oneHourLater),
-        bac: bacOneHourLater,
-        bacFormatted: (bacOneHourLater * 10).toFixed(1)
+        bac: 0, // Assume zero BAC in future extension point
+        bacFormatted: "0.0"
       });
     }
     
-    // Update state and ref
-    chartDataRef.current = filteredData;
-    setChartData(filteredData);
-    
-    console.log("Chart data updated:", {
-      currentTime: formatTimeForDisplay(now),
-      dataLength: filteredData.length,
-      firstPoint: filteredData.length > 0 ? filteredData[0].time : "none",
-      lastPoint: filteredData.length > 0 ? filteredData[filteredData.length - 1].time : "none",
-      soberTime: soberTime ? formatTimeForDisplay(soberTime) : "None"
+    // Log the generated chart data for debugging
+    console.log("Chart data generated:", {
+      pointCount: transformedData.length,
+      timeRange: transformedData.length > 0 ? 
+        `${transformedData[0].time} to ${transformedData[transformedData.length-1].time}` : 
+        "none",
+      soberTime: soberTime ? formatTimeForDisplay(soberTime) : "none"
     });
-  }, [data, soberTime, chartData.length]);
+    
+    setChartData(transformedData);
+  }, [data, soberTime]);
 
-  // Calculate hourly ticks for X-axis with even hour intervals
-  const getHourlyTicks = () => {
-    if (chartData.length === 0) return [];
+  // Calculate max BAC for y-axis scale (with minimum of 0.1)
+  const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
+  
+  // Calculate domain for X-axis based on data
+  const getXDomain = () => {
+    if (chartData.length < 2) return [0, 1]; // Default domain if no data
+
+    return [chartData[0].timestamp, chartData[chartData.length - 1].timestamp];
+  };
+  
+  // Calculate appropriate ticks for X-axis
+  const getXTicks = () => {
+    if (chartData.length < 2) return [];
     
-    // Get current time - use a fresh instance to ensure it's up-to-date
-    const now = new Date();
-    
-    // Find the nearest future whole hour
-    const nextWholeHour = new Date(now);
-    // Go to next whole hour (e.g., 10:00, 11:00)
-    nextWholeHour.setHours(nextWholeHour.getHours() + (nextWholeHour.getMinutes() > 0 ? 1 : 0), 0, 0, 0);
-    
-    // Find the latest timestamp in our data
-    const lastTimestamp = chartData[chartData.length - 1].timestamp;
-    
-    // Generate ticks
     const ticks = [];
+    const start = chartData[0].timestamp;
+    const end = chartData[chartData.length - 1].timestamp;
     
-    // Always add current time as first tick
-    ticks.push(now.getTime());
+    // Calculate number of ticks based on chart width
+    const numberOfTicks = 6; // Adjust based on chart width
+    const interval = (end - start) / (numberOfTicks - 1);
     
-    // Add hourly ticks at whole hours
-    let currentTick = nextWholeHour.getTime();
-    while (currentTick <= lastTimestamp + (15 * 60 * 1000)) {
-      ticks.push(currentTick);
-      currentTick += 60 * 60 * 1000; // Add 1 hour
+    for (let i = 0; i < numberOfTicks; i++) {
+      ticks.push(start + i * interval);
     }
     
     return ticks;
   };
-
-  // Calculate domain for X-axis, ensuring it starts from current time
-  const getXDomain = () => {
-    if (chartData.length === 0) return [0, 1];
-    
-    // Use a fresh instance to ensure it's up-to-date
-    const now = new Date();
-    
-    // Start domain exactly at current time
-    const xMin = now.getTime();
-    
-    // End domain at the last data point plus a small buffer
-    const xMax = Math.max(
-      chartData[chartData.length - 1].timestamp,
-      now.getTime() + 60 * 60 * 1000 // At least 1 hour from now
-    );
-    
-    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes padding at end
-  };
-
+  
   // Format tooltip values
   const formatTooltipValue = (value: number) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
-
-  // Calculate max BAC for y-axis scale (with minimum of 0.1)
-  const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
-
-  // Calculate ticks and domain using useMemo to prevent unnecessary recalculations
-  const hourlyTicks = useMemo(() => getHourlyTicks(), [chartData]);
-  const xDomain = useMemo(() => getXDomain(), [chartData]);
   
   // Format function for X-axis
   const formatXAxis = (timestamp: number) => {
@@ -270,14 +156,13 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             <XAxis 
               dataKey="timestamp" 
               type="number"
-              domain={xDomain}
+              domain={getXDomain()}
               scale="time"
               tickFormatter={formatXAxis}
-              ticks={hourlyTicks}
+              ticks={getXTicks()}
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
-              tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
               allowDataOverflow={true}
             />
             <YAxis 
@@ -287,7 +172,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               unit="‰"
               stroke="#C8C8C9"
               strokeWidth={1.5}
-              tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
               allowDecimals={true}
             />
             <Tooltip 
@@ -298,12 +182,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
                 borderColor: 'var(--border)',
                 borderRadius: '8px',
                 padding: '8px',
-                fontSize: '12px',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                fontSize: '12px'
               }}
               itemStyle={{ color: 'var(--foreground)' }}
               labelStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }}
-              isAnimationActive={false}
             />
             <ReferenceLine 
               y={LEGAL_LIMITS.regular} 
@@ -340,9 +222,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         </ResponsiveContainer>
       ) : (
         <div className="h-full flex items-center justify-center text-muted-foreground">
-          {data.length === 0 
-            ? "Add drinks to see your BAC chart" 
-            : "Add more drinks to see a detailed chart"}
+          Add drinks to see your BAC chart
         </div>
       )}
     </div>
