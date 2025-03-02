@@ -34,8 +34,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
     // Filter to only show current time forward
     const filteredData = transformedData.filter(point => {
-      // Only show points from current time onward
-      // Include a little buffer (5 minutes) before current time to show trend
+      // Only show points from current time onward or 5 minutes before for context
       return point.timestamp >= now.getTime() - 5 * 60 * 1000;
     });
 
@@ -132,26 +131,28 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Calculate hourly ticks for X-axis starting exactly from current time
+  // Calculate hourly ticks for X-axis with whole hour intervals
   const getHourlyTicks = () => {
     if (chartData.length === 0) return [];
     
-    // Get current time rounded to nearest minute
+    // Get current time
     const now = new Date();
-    now.setSeconds(0, 0); // Zero out seconds and milliseconds
+    
+    // Find the next whole hour time
+    const nextWholeHour = new Date(now);
+    nextWholeHour.setHours(nextWholeHour.getHours() + 1, 0, 0, 0); // Next hour, 0 minutes
     
     // Find the latest timestamp in our data
     const lastTimestamp = chartData[chartData.length - 1].timestamp;
     
-    // Generate hourly ticks starting from current time
+    // Generate hourly ticks starting from next whole hour
     const ticks = [];
-    let currentTick = now.getTime();
     
     // Always add current time as first tick
-    ticks.push(currentTick);
+    ticks.push(now.getTime());
     
-    // Add hourly ticks until we cover the chart range
-    currentTick += 60 * 60 * 1000; // Start with +1 hour
+    // Add hourly ticks at whole hours
+    let currentTick = nextWholeHour.getTime();
     while (currentTick <= lastTimestamp + (15 * 60 * 1000)) {
       ticks.push(currentTick);
       currentTick += 60 * 60 * 1000; // Add 1 hour
@@ -165,7 +166,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     if (chartData.length === 0) return [0, 1];
     
     const now = new Date();
-    now.setSeconds(0, 0); // Zero out seconds
     
     // Start domain exactly at current time
     const xMin = now.getTime();
@@ -176,7 +176,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       now.getTime() + 60 * 60 * 1000 // At least 1 hour from now
     );
     
-    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes to the end for padding
+    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes padding at end
   };
 
   // Format tooltip values

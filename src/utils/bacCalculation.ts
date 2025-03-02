@@ -1,4 +1,3 @@
-
 export interface UserData {
   gender: 'male' | 'female';
   weight: number;
@@ -75,7 +74,7 @@ export function calculateBacOverTime(
   
   // Always include the current time as a data point for most accurate current BAC
   if (!timePoints.find(t => Math.abs(t.getTime() - now.getTime()) < 60 * 1000)) {
-    timePoints.push(now);
+    timePoints.push(new Date(now));
     // Re-sort to maintain chronological order
     timePoints.sort((a, b) => a.getTime() - b.getTime());
   }
