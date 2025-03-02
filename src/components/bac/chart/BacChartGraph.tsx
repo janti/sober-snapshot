@@ -197,20 +197,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           coordinates={coordinates} 
         />
       </div>
-      
-      {/* Tooltip for the current BAC */}
-      {chartData.length > 0 && (
-        <div
-          className="absolute bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border -translate-y-full z-20"
-          style={{ 
-            left: `${leftPadding + 10}px`, 
-            top: `${coordinates.getYCoordinate(chartData[0].bac) - 10}px`
-          }}
-        >
-          <div className="font-medium">Current</div>
-          <div>{(chartData[0].bac * 10).toFixed(1)}‰</div>
-        </div>
-      )}
     </div>
   );
 };
