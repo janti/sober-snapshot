@@ -78,7 +78,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
 
   // Create BAC level marks with appropriate intervals
-  const bacMarks = [];
+  const bacMarks: number[] = [];
   // Determine a nice interval based on max BAC
   let bacInterval = 0.02; // default for small values
   if (maxBac > 0.4) {
@@ -89,7 +89,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Generate BAC marks from 0 up to maxBac (plus a little extra for display)
   for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
-    bacMarks.push(level);
+    bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
   }
 
   // Ensure we have at least 3 BAC marks regardless of the calculated interval
@@ -97,19 +97,23 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     bacMarks.length = 0;
     bacInterval = maxBac / 4;
     for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
-      bacMarks.push(level);
+      bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
     }
   }
 
+  // Calculate a fixed height for chart content - this is crucial for proper scaling
+  const chartHeight = 350; // pixels
+
   return (
-    <div className="w-full h-full relative">
-      {/* Draw the grid */}
-      <div className="absolute inset-0 border-b border-l border-border">
+    <div className="w-full h-[400px] relative mb-4">
+      {/* Chart container with fixed height for better scaling */}
+      <div className="absolute inset-0 border-b border-l border-border pt-4 pb-8 pr-4" style={{ height: chartHeight }}>
         {/* Horizontal grid lines and Y-axis labels */}
         {bacMarks.map((level, index) => {
           // Skip if level is above our display range
           if (level > maxBac * 1.1) return null;
           
+          // Calculate vertical position as percentage
           const percentY = 100 - (level / maxBac) * 100;
           // Skip if the label would be off-chart
           if (percentY < 0 || percentY > 100) return null;
@@ -117,10 +121,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           return (
             <div 
               key={`y-${index}`} 
-              className="absolute w-full border-t border-border border-opacity-50"
+              className="absolute w-full border-t border-border border-opacity-50 flex items-center"
               style={{ top: `${percentY}%` }}
             >
-              <span className="absolute -left-8 -top-3 text-xs text-muted-foreground">
+              <span className="absolute -left-10 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -197,53 +201,53 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Draw the BAC line and area */}
-      <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="bacGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
-          </linearGradient>
-        </defs>
-        
-        {/* Draw area under the line */}
-        <path
-          d={`
-            M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-            ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-            L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
-            L ${getXCoordinate(chartData[0].time)} ${getYCoordinate(0)}
-            Z
-          `}
-          fill="url(#bacGradient)"
-        />
-        
-        {/* Draw the line */}
-        <path
-          d={`
-            M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-            ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-          `}
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          fill="none"
-        />
-        
-        {/* Draw data points */}
-        {chartData.map((point, index) => (
-          <circle
-            key={index}
-            cx={getXCoordinate(point.time)}
-            cy={getYCoordinate(point.bac)}
-            r="3"
-            fill="hsl(var(--primary))"
-            stroke="var(--background)"
-            strokeWidth="1"
+        {/* Draw the BAC line and area */}
+        <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="bacGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
+            </linearGradient>
+          </defs>
+          
+          {/* Draw area under the line */}
+          <path
+            d={`
+              M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+              ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+              L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
+              L ${getXCoordinate(chartData[0].time)} ${getYCoordinate(0)}
+              Z
+            `}
+            fill="url(#bacGradient)"
           />
-        ))}
-      </svg>
+          
+          {/* Draw the line */}
+          <path
+            d={`
+              M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+              ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+            `}
+            stroke="hsl(var(--primary))"
+            strokeWidth="2.5"
+            fill="none"
+          />
+          
+          {/* Draw data points */}
+          {chartData.map((point, index) => (
+            <circle
+              key={index}
+              cx={getXCoordinate(point.time)}
+              cy={getYCoordinate(point.bac)}
+              r="3.5"
+              fill="hsl(var(--primary))"
+              stroke="var(--background)"
+              strokeWidth="1.5"
+            />
+          ))}
+        </svg>
+      </div>
       
       {/* Tooltips for each data point */}
       {chartData.map((point, index) => (
@@ -271,27 +275,40 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   function getXCoordinate(time: Date): number {
     const chartStartTime = chartData[0].time.getTime();
     const chartEndTime = chartData[chartData.length - 1].time.getTime();
-    const percent = (time.getTime() - chartStartTime) / (chartEndTime - chartStartTime);
-    // Leave 5% padding on each side
-    return 5 + percent * 90;
+    const timeRange = chartEndTime - chartStartTime;
+    
+    if (timeRange === 0) return 5; // Handle edge case
+    
+    const percent = (time.getTime() - chartStartTime) / timeRange;
+    // Leave 5% padding on left side and 2% on right
+    return 5 + percent * 93;
   }
   
   function getYCoordinate(bac: number): number {
     // SVG coordinates go from top to bottom, so we need to invert
+    if (maxBac === 0) return 95; // Handle edge case
+    
     const percent = bac / maxBac;
-    // Leave 5% padding at the top
-    return 100 - (5 + percent * 90);
+    // Leave 5% padding at the top, 5% at the bottom
+    return 95 - (percent * 90);
   }
   
   function getXPercent(time: Date): number {
     const chartStartTime = chartData[0].time.getTime();
     const chartEndTime = chartData[chartData.length - 1].time.getTime();
-    return ((time.getTime() - chartStartTime) / (chartEndTime - chartStartTime)) * 100;
+    const timeRange = chartEndTime - chartStartTime;
+    
+    if (timeRange === 0) return 0; // Handle edge case
+    
+    return ((time.getTime() - chartStartTime) / timeRange) * 100;
   }
   
   function getYPercent(bac: number): number {
+    if (maxBac === 0) return 100; // Handle edge case
+    
     return 100 - ((bac / maxBac) * 100);
   }
 };
 
 export default BacChartGraph;
+
