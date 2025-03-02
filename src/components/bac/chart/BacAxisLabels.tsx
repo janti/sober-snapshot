@@ -48,13 +48,16 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
           // Only render if we have a valid time
           if (isNaN(xPosition)) return null;
           
+          // Determine if this is a full hour for styling
+          const isFullHour = timePoint.getMinutes() === 0;
+          
           return (
             <div 
               key={`hour-${index}`} 
               className="absolute"
               style={{ left: `${xPosition}%` }}
             >
-              <div className={`h-full w-px bg-border opacity-50 absolute top-[-${chartHeight}px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
+              <div className={`h-full w-px ${isFullHour ? 'bg-border' : 'bg-border opacity-30'} absolute top-[-${chartHeight}px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
               <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
                 {formatTime(timePoint)}
               </div>

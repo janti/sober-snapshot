@@ -90,14 +90,14 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   // Calculate total duration in hours
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
 
-  // Generate time markers for x-axis (hour intervals starting from now)
+  // Generate time markers for x-axis (consistently hourly intervals from now)
   const hourMarks: Date[] = [];
 
-  // Always add current time as first marker
+  // Add current time as first marker
   hourMarks.push(new Date(now));
 
-  // Generate hourly markers
-  for (let i = 1; i <= Math.min(8, Math.ceil(totalHours)); i++) {
+  // Generate hourly markers (exactly one per hour)
+  for (let i = 1; i <= Math.min(12, Math.ceil(totalHours)); i++) {
     const markerTime = new Date(now.getTime() + i * 60 * 60 * 1000);
     if (markerTime <= endTime) {
       hourMarks.push(markerTime);
@@ -105,17 +105,12 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   }
 
   // If sober time doesn't fall on an hour mark and it's our end point, add it
-  if (soberTime && soberTime > now) {
-    const soberHour = soberTime.getHours();
-    const soberMinute = soberTime.getMinutes();
-    
-    // Check if sober time is not already included in hour marks
+  if (soberTime && soberTime > now && soberTime <= endTime) {
     const isSoberTimeIncluded = hourMarks.some(mark => 
-      mark.getHours() === soberHour && mark.getMinutes() === soberMinute
+      Math.abs(mark.getTime() - soberTime.getTime()) < 60 * 1000 // Within a minute
     );
     
     if (!isSoberTimeIncluded) {
-      // Add sober time as the last marker if it's not already included
       hourMarks.push(soberTime);
       // Sort marks by time to ensure proper order
       hourMarks.sort((a, b) => a.getTime() - b.getTime());
