@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
@@ -13,6 +13,7 @@ interface BacChartProps {
 }
 
 const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
+  // Ensure data is properly formatted for the chart
   const chartData = data.map(point => ({
     time: point.time,
     timeFormatted: point.time.toLocaleTimeString([], { 
@@ -24,6 +25,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
   }));
 
   const currentBac = data.length > 0 ? data[data.length - 1].bac : 0;
+  // Ensure we have a reasonable scale that won't collapse when BAC is very low
   const maxBac = Math.max(...data.map(d => d.bac), 0.1); // Ensure at least 0.1 for scale
   
   const isAboveRegularLimit = currentBac > LEGAL_LIMITS.regular;
@@ -101,19 +103,33 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 data={chartData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                <defs>
+                  <linearGradient id="bacColor" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.2}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.7} />
                 <XAxis 
                   dataKey="time" 
                   tickFormatter={formatXAxis} 
                   tick={{ fontSize: 12 }}
-                  stroke="rgba(0,0,0,0.5)"
+                  stroke="var(--muted-foreground)"
+                  tickLine={{ stroke: 'var(--muted-foreground)' }}
+                  domain={['dataMin', 'dataMax']}
+                  type="number"
+                  scale="time"
+                  allowDataOverflow
                 />
                 <YAxis 
                   tickFormatter={value => `${(value * 10).toFixed(1)}`}
                   domain={[0, maxBac * 1.1]} 
                   tick={{ fontSize: 12 }}
                   unit="‰"
-                  stroke="rgba(0,0,0,0.5)"
+                  stroke="var(--muted-foreground)"
+                  tickLine={{ stroke: 'var(--muted-foreground)' }}
+                  allowDecimals={true}
+                  minTickGap={10}
                 />
                 <Tooltip 
                   formatter={formatTooltipValue}
@@ -126,6 +142,16 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                     }
                     return value;
                   }}
+                  contentStyle={{
+                    backgroundColor: 'var(--background)',
+                    borderColor: 'var(--border)',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    fontSize: '12px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                  }}
+                  itemStyle={{ color: 'var(--foreground)' }}
+                  labelStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }}
                 />
                 <ReferenceLine 
                   y={LEGAL_LIMITS.regular} 
@@ -153,9 +179,11 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                   type="monotone" 
                   dataKey="bac" 
                   stroke="var(--primary)" 
-                  fill="var(--primary)" 
-                  fillOpacity={0.2} 
-                  activeDot={{ r: 6 }}
+                  fill="url(#bacColor)" 
+                  strokeWidth={2}
+                  isAnimationActive={true}
+                  animationDuration={500}
+                  activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'var(--background)' }}
                 />
               </AreaChart>
             </ResponsiveContainer>

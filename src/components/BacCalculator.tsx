@@ -46,7 +46,7 @@ const BacCalculator: React.FC = () => {
     const intervalId = setInterval(() => {
       console.log("Interval update triggered");
       setRefreshTrigger(Date.now()); // Use timestamp for better trigger
-    }, 5000); // Update every 5 seconds for more responsive updates
+    }, 2000); // Update even more frequently (2 seconds) for responsive chart
     
     return () => {
       console.log("Clearing BAC update interval");
@@ -72,11 +72,11 @@ const BacCalculator: React.FC = () => {
       
     // Look ahead 12 hours maximum
     const endTime = new Date(Math.max(
-      new Date().getTime(),
+      new Date().getTime() + 30 * 60 * 1000, // At least 30 minutes into future for better visualization
       startTime.getTime() + 12 * 60 * 60 * 1000
     ));
     
-    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
+    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 5); // Increase data point frequency to 5 min
     setBacData(bacPoints);
     
     // Get current BAC using dedicated function
