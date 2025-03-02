@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
@@ -114,9 +115,10 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <XAxis 
                   dataKey="timestamp" 
                   tickFormatter={formatXAxis} 
-                  tick={{ fontSize: 12, fill: "var(--foreground)" }}
-                  stroke="var(--foreground)"
-                  tickLine={{ stroke: 'var(--foreground)' }}
+                  tick={{ fontSize: 12, fill: "currentColor" }}
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  tickLine={{ stroke: 'currentColor', strokeWidth: 1.5 }}
                   domain={['dataMin', 'dataMax']}
                   type="number"
                   scale="time"
@@ -125,10 +127,11 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <YAxis 
                   tickFormatter={value => `${(value * 10).toFixed(1)}`}
                   domain={[0, maxBac * 1.1]} 
-                  tick={{ fontSize: 12, fill: "var(--foreground)" }}
+                  tick={{ fontSize: 12, fill: "currentColor" }}
                   unit="‰"
-                  stroke="var(--foreground)"
-                  tickLine={{ stroke: 'var(--foreground)' }}
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  tickLine={{ stroke: 'currentColor', strokeWidth: 1.5 }}
                   allowDecimals={true}
                   minTickGap={10}
                 />
