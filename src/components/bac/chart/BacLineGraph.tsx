@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BacDataPoint, ChartCoordinates } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,18 +13,17 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
   chartHeight, 
   coordinates 
 }) => {
-  // Ensure we have at least the first (current) and last (sober) points
-  // Even if BAC is 0, we need to display these critical points
+  // Ensure we have data to display
   if (chartData.length === 0) return null;
   
   // Always include first point (current time) and last point (sober time)
   const currentTimePoint = chartData[0];
   const soberTimePoint = chartData[chartData.length - 1];
   
-  // For intermediate points, filter out zero BAC points
-  const intermediatePoints = chartData.slice(1, -1).filter(point => point.bac > 0);
+  // For intermediate points, keep all points to show the progression
+  const intermediatePoints = chartData.slice(1, -1);
   
-  // Construct display data with at least current and sober time points
+  // Construct display data with all points for a solid line
   const displayData = [currentTimePoint, ...intermediatePoints];
   
   // Only add sober time point if it's different from current time
@@ -42,10 +40,10 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
     });
   };
 
-  // Create path coordinates - always connecting current to sober time
+  // Create path coordinates - always connecting all points with a solid line
   const createPath = () => {
     if (displayData.length < 2) {
-      // If only one point, create horizontal line to show time passage
+      // If only one point, create horizontal line to show time direction
       const x1 = coordinates.getXCoordinate(displayData[0].time);
       const y1 = coordinates.getYCoordinate(displayData[0].bac);
       const x2 = x1 + 20; // Show a small line to indicate time direction
@@ -115,11 +113,11 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           className="transition-all duration-300"
         />
         
-        {/* Draw the line itself - highlighted to show timeline from current to sober */}
+        {/* Draw the line itself - always show solid line from current to sober */}
         <path
           d={createPath()}
           stroke="hsl(var(--primary))"
-          strokeWidth="2.5"
+          strokeWidth="3"
           fill="none"
           strokeLinecap="round"
           className="transition-all duration-300"

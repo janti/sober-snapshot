@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { BacAxisLabels } from './BacAxisLabels';
@@ -28,16 +29,15 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
 
     // Create a copy of the data so we don't modify the original
     const newChartData = [...data]
-      .sort((a, b) => a.time.getTime() - b.time.getTime())
-      .filter(point => point.bac > 0); // Filter out zero BAC points
+      .sort((a, b) => a.time.getTime() - b.time.getTime());
     
-    // If all points were zero or filtered out, keep at least the current point
+    // Ensure we have at least one point
     if (newChartData.length === 0 && data.length > 0) {
       newChartData.push(data[0]);
     }
     
-    // If there's only one data point and it has BAC > 0, add a projection point
-    if (newChartData.length === 1 && newChartData[0].bac > 0) {
+    // If there's only one data point, add a projection point
+    if (newChartData.length === 1) {
       // If we have sober time, use that for the second point
       if (soberTime) {
         newChartData.push({
@@ -47,9 +47,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
       } else {
         // Otherwise, add a point 1 hour later with slightly lower BAC
         const nextTime = new Date(newChartData[0].time.getTime() + 60 * 60 * 1000);
+        const nextBac = Math.max(0, newChartData[0].bac - 0.015); // Subtract standard elimination rate
         newChartData.push({
           time: nextTime,
-          bac: Math.max(0, newChartData[0].bac - 0.015) // Subtract standard elimination rate
+          bac: nextBac
         });
       }
     }
