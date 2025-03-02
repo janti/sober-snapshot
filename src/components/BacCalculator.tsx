@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   UserData, 
@@ -61,14 +62,15 @@ const BacCalculator: React.FC = () => {
     }
     
     // Calculate BAC over time for the chart
-    const startTime = drinks.length > 0 
-      ? new Date(Math.min(...drinks.map(d => d.timestamp.getTime())))
-      : new Date();
+    const startTime = new Date(Math.min(
+      ...drinks.map(d => d.timestamp.getTime()),
+      new Date().getTime() // Include current time in the minimum calculation
+    ));
       
-    // Look ahead 12 hours maximum
+    // Look ahead 12 hours maximum from now (not from earliest drink)
     const endTime = new Date(Math.max(
       new Date().getTime() + 30 * 60 * 1000, // At least 30 minutes into future for better visualization
-      startTime.getTime() + 12 * 60 * 60 * 1000
+      new Date().getTime() + 12 * 60 * 60 * 1000 // Maximum 12 hours from now
     ));
     
     const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 5); // Increase data point frequency to 5 min
@@ -89,8 +91,11 @@ const BacCalculator: React.FC = () => {
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
     console.log("Adding drink:", drink.name);
-    setDrinks(prev => [...prev, drink]);
-    setRefreshTrigger(Date.now()); // Force immediate update with timestamp
+    const newDrinks = [...drinks, drink];
+    setDrinks(newDrinks);
+    
+    // Force immediate update
+    setRefreshTrigger(Date.now());
     
     // Show toast notification
     toast({
@@ -102,8 +107,11 @@ const BacCalculator: React.FC = () => {
   // Handle removing a drink
   const handleRemoveDrink = (id: string) => {
     console.log("Removing drink with ID:", id);
-    setDrinks(prev => prev.filter(drink => drink.id !== id));
-    setRefreshTrigger(Date.now()); // Force immediate update with timestamp
+    const newDrinks = drinks.filter(drink => drink.id !== id);
+    setDrinks(newDrinks);
+    
+    // Force immediate update
+    setRefreshTrigger(Date.now());
   };
   
   // Handle resetting the calculator
@@ -126,6 +134,9 @@ const BacCalculator: React.FC = () => {
     // Force a fresh calculation by using the current time
     setRefreshTrigger(Date.now());
   };
+
+  // Generate a key for the chart to force remounting when drinks change
+  const chartKey = `bac-chart-${drinks.length}-${refreshTrigger}`;
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -159,8 +170,9 @@ const BacCalculator: React.FC = () => {
           />
         </div>
         
-        {/* BAC Chart */}
+        {/* BAC Chart - use key to force remount when drinks change */}
         <BacChart 
+          key={chartKey}
           data={bacData} 
           soberTime={soberTime}
         />

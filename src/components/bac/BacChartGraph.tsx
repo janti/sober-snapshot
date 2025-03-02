@@ -135,7 +135,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const getHourlyTicks = () => {
     if (chartData.length === 0) return [];
     
-    // Get current time
+    // Get current time - use a fresh instance to ensure it's up-to-date
     const now = new Date();
     
     // Find the nearest future whole hour
@@ -167,6 +167,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const getXDomain = () => {
     if (chartData.length === 0) return [0, 1];
     
+    // Use a fresh instance to ensure it's up-to-date
     const now = new Date();
     
     // Start domain exactly at current time
@@ -192,16 +193,22 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   };
 
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
-  const maxBac = Math.max(...data.map(d => d.bac), 0.1);
+  const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
+  
+  // Get current time - ensure we're using the latest time
+  const now = new Date();
 
-  // Calculate ticks and domain
+  // Calculate ticks and domain - recalculate these every time the component renders
   const hourlyTicks = getHourlyTicks();
   const xDomain = getXDomain();
+
+  // Force chart to redraw completely when data changes
+  const chartKey = `bac-chart-${data.length}-${now.getTime()}`;
 
   return (
     <div className="h-64 w-full">
       {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
