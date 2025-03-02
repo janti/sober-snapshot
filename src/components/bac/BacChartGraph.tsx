@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -10,31 +9,75 @@ interface BacChartGraphProps {
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const [chartData, setChartData] = useState<any[]>([]);
-  // Track previous data length to avoid unnecessary recalculations
-  const prevDataLength = useRef<number>(0);
-  const prevSoberTime = useRef<Date | null>(null);
+  
+  // Use refs to minimize re-renders while still tracking changes
+  const dataRef = useRef<{ time: Date; bac: number }[]>([]);
+  const soberTimeRef = useRef<Date | null>(null);
+  const chartDataRef = useRef<any[]>([]);
+  const lastUpdateRef = useRef<number>(0);
+  
+  // Format time consistently across the component
+  const formatTimeForDisplay = (date: Date): string => {
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
+  // Deep compare function for data arrays to prevent unnecessary updates
+  const hasDataChanged = (oldData: any[], newData: any[]): boolean => {
+    if (oldData.length !== newData.length) return true;
+    
+    // First check time values and length
+    if (oldData.length !== newData.length) return true;
+    
+    // Check if soberTime changed
+    const oldSoberTime = soberTimeRef.current?.getTime();
+    const newSoberTime = soberTime?.getTime();
+    if (oldSoberTime !== newSoberTime) return true;
+    
+    // Check if enough time has passed since last update (at least 5 seconds)
+    const now = Date.now();
+    if (now - lastUpdateRef.current > 5000) return true;
+    
+    // If lengths are same but both are 0, consider it unchanged
+    if (oldData.length === 0 && newData.length === 0) return false;
+    
+    // Extra step: explicitly check the first and last data points
+    if (oldData.length > 0 && newData.length > 0) {
+      const firstNew = newData[0].time.getTime();
+      const firstOld = oldData[0].time.getTime();
+      const lastNew = newData[newData.length - 1].time.getTime();
+      const lastOld = oldData[oldData.length - 1].time.getTime();
+      
+      if (Math.abs(firstNew - firstOld) > 1000 || Math.abs(lastNew - lastOld) > 1000) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
 
   // Transform data for recharts whenever input data changes
   useEffect(() => {
-    // Check if data or soberTime has actually changed meaningfully
-    const soberTimeChanged = prevSoberTime.current?.getTime() !== soberTime?.getTime();
-    const dataLengthChanged = prevDataLength.current !== data.length;
-    
-    if (!dataLengthChanged && !soberTimeChanged && chartData.length > 0) {
-      console.log("Skipping chart data update - no meaningful changes");
+    // Skip update if nothing meaningful changed to prevent re-renders
+    if (!hasDataChanged(dataRef.current, data) && chartData.length > 0) {
       return;
     }
     
-    // Update refs to current values
-    prevDataLength.current = data.length;
-    prevSoberTime.current = soberTime || null;
+    console.log("Updating chart data with new values, data length:", data.length);
+    
+    // Update refs
+    dataRef.current = [...data];
+    soberTimeRef.current = soberTime || null;
+    lastUpdateRef.current = Date.now();
     
     if (data.length === 0) {
       setChartData([]);
+      chartDataRef.current = [];
       return;
     }
-
-    console.log("Updating chart data with new values, data length:", data.length);
     
     // Get current time
     const now = new Date();
@@ -129,6 +172,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       });
     }
     
+    // Update state and ref
+    chartDataRef.current = filteredData;
     setChartData(filteredData);
     
     console.log("Chart data updated:", {
@@ -138,16 +183,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       lastPoint: filteredData.length > 0 ? filteredData[filteredData.length - 1].time : "none",
       soberTime: soberTime ? formatTimeForDisplay(soberTime) : "None"
     });
-  }, [data, soberTime]);
-
-  // Format time consistently across the component
-  const formatTimeForDisplay = (date: Date): string => {
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false
-    });
-  };
+  }, [data, soberTime, chartData.length]);
 
   // Calculate hourly ticks for X-axis with even hour intervals
   const getHourlyTicks = () => {
@@ -207,9 +243,14 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
 
-  // Calculate ticks and domain - these can change on each render if needed
-  const hourlyTicks = getHourlyTicks();
-  const xDomain = getXDomain();
+  // Calculate ticks and domain using useMemo to prevent unnecessary recalculations
+  const hourlyTicks = useMemo(() => getHourlyTicks(), [chartData]);
+  const xDomain = useMemo(() => getXDomain(), [chartData]);
+  
+  // Format function for X-axis
+  const formatXAxis = (timestamp: number) => {
+    return formatTimeForDisplay(new Date(timestamp));
+  };
 
   return (
     <div className="h-64 w-full">
@@ -306,11 +347,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       )}
     </div>
   );
-  
-  // Format timestamp for X-axis display
-  function formatXAxis(timestamp: number) {
-    return formatTimeForDisplay(new Date(timestamp));
-  }
 };
 
 export default BacChartGraph;
