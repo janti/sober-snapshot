@@ -7,5 +7,5 @@ export { default as BacTimeToSober } from './BacTimeToSober';
 
 // Export chart components
 export { default as BacChart } from './BacChart';
-export { default as BacChartGraph } from './BacChartGraph';
+export { BacChartGraph } from './chart';
 export { default as BacSoberTime } from './BacSoberTime';
