@@ -123,8 +123,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const startTime = now; // Always start from now
   const endTime = chartData[chartData.length - 1].time;
   
-  // Calculate total hours for the chart
-  const totalHours = (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+  // Calculate total hours for the chart (with a minimum of 3 hours to avoid too narrow display)
+  const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
   
   // Create hour interval - aim for 4-8 marks
   let hourInterval = 1; // Default to 1 hour
@@ -146,7 +146,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Add hour marks at regular intervals
   let currentHour = new Date(firstHour);
-  while (currentHour.getTime() <= endTime.getTime()) {
+  // Ensure we create marks that cover the entire chart duration
+  while (currentHour.getTime() <= endTime.getTime() + hourInterval * 60 * 60 * 1000) {
     hourMarks.push(new Date(currentHour));
     currentHour.setHours(currentHour.getHours() + hourInterval);
   }
@@ -177,16 +178,16 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
 
   // Calculate chart dimensions for proper scaling
-  const chartHeight = 300; // pixels
+  const chartHeight = 220; // Reduced height to prevent overflow
   const chartWidth = "100%"; // Use full width of container
 
   // Create a straight-line version of the data
   const straightLineData = chartData.filter(point => point.time.getTime() >= startTime.getTime());
 
   return (
-    <div className="w-full h-[350px] relative mb-4 overflow-visible">
+    <div className="w-full h-[280px] relative mb-2 overflow-hidden">
       {/* Chart container */}
-      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-8 pr-2" style={{ height: chartHeight }}>
+      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pr-2" style={{ height: chartHeight }}>
         {/* Horizontal grid lines and Y-axis labels */}
         {bacMarks.map((level, index) => {
           const percentY = 100 - (level / roundedMaxBac) * 100;
@@ -200,7 +201,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               className="absolute w-full border-t border-border border-opacity-50 flex items-center"
               style={{ top: `${percentY}%` }}
             >
-              <span className="absolute -left-12 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute -left-8 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -216,8 +217,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               zIndex: 5
             }}
           >
-            <span className="absolute right-0 -top-5 text-xs text-destructive">
-              Regular Limit ({(LEGAL_LIMITS.regular * 10).toFixed(1)}‰)
+            <span className="absolute right-0 -top-5 text-xs text-destructive whitespace-nowrap">
+              {(LEGAL_LIMITS.regular * 10).toFixed(1)}‰
             </span>
           </div>
         )}
@@ -230,49 +231,49 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               zIndex: 5
             }}
           >
-            <span className="absolute right-0 -top-5 text-xs text-amber-500">
-              Professional Limit ({(LEGAL_LIMITS.professional * 10).toFixed(1)}‰)
+            <span className="absolute right-0 -top-5 text-xs text-amber-500 whitespace-nowrap">
+              {(LEGAL_LIMITS.professional * 10).toFixed(1)}‰
             </span>
           </div>
         )}
         
-        {/* X-axis hour marks */}
-        {hourMarks.map((timePoint, index) => {
-          const percentX = ((timePoint.getTime() - startTime.getTime()) / 
-                         (endTime.getTime() - startTime.getTime())) * 100;
-          
-          // Skip if the label would be off-chart
-          if (percentX < 0 || percentX > 100) return null;
-          
-          return (
-            <div 
-              key={`hour-${index}`} 
-              className="absolute h-full"
-              style={{ left: `${percentX}%` }}
-            >
-              <div className="absolute bottom-0 transform -translate-x-1/2 -translate-y-[-24px]">
-                <span className="text-xs text-muted-foreground font-medium">
+        {/* X-axis hour marks - better positioned */}
+        <div className="absolute bottom-0 left-0 right-0 h-6 flex">
+          {hourMarks.map((timePoint, index) => {
+            // Calculate time difference in hours
+            const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+            const percentX = (hourDiff / totalHours) * 100;
+            
+            // Skip if the label would be off-chart
+            if (percentX < 0 || percentX > 100) return null;
+            
+            return (
+              <div 
+                key={`hour-${index}`} 
+                className="absolute"
+                style={{ left: `${percentX}%` }}
+              >
+                <div className="h-full w-px bg-border opacity-50 absolute top-[-220px]"></div>
+                <div className="absolute -translate-x-1/2 text-xs text-muted-foreground font-medium whitespace-nowrap">
                   {formatTime(timePoint)}
-                </span>
+                </div>
               </div>
-              <div className="h-full w-px bg-border opacity-50"></div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
         
         {/* Show sober time if available */}
         {soberTime && soberTime.getTime() > startTime.getTime() && (
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${((soberTime.getTime() - startTime.getTime()) / 
-                      (endTime.getTime() - startTime.getTime())) * 100}%` 
+              left: `${(((soberTime.getTime() - startTime.getTime()) / (60 * 60 * 1000)) / totalHours) * 100}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
-            <div className="absolute bottom-0 transform -translate-x-1/2 -translate-y-[-24px]">
-              <span className="text-xs text-green-500 font-medium">
-                Sober ({formatTime(soberTime)})
+            <div className="absolute bottom-[-24px] transform -translate-x-1/2">
+              <span className="text-xs text-green-500 font-medium whitespace-nowrap">
+                Sober
               </span>
             </div>
           </div>
@@ -339,37 +340,36 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         </svg>
       </div>
       
-      {/* Tooltips for each data point */}
-      {straightLineData.map((point, index) => (
+      {/* Simple tooltips only for the current point */}
+      {straightLineData.length > 0 && (
         <div
-          key={`tooltip-${index}`}
-          className="absolute -translate-x-1/2 -translate-y-full group"
+          className="absolute -translate-x-1/2 -translate-y-full"
           style={{ 
-            left: `${getXPercent(point.time)}%`, 
-            top: `${Math.min(85, getYPercent(point.bac))}%`  // Limit tooltip position to avoid going out of bounds
+            left: `${getXPercent(straightLineData[0].time)}%`, 
+            top: `${Math.min(50, getYPercent(straightLineData[0].bac))}%`
           }}
         >
-          <div className="w-2 h-2 opacity-0 group-hover:opacity-100"></div>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 z-20">
+          <div className="opacity-0 hover:opacity-100 transition-opacity z-20">
             <div className="bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border">
-              <div className="font-medium">{formatTime(point.time)}</div>
-              <div>{(point.bac * 10).toFixed(1)}‰</div>
+              <div className="font-medium">Current</div>
+              <div>{(straightLineData[0].bac * 10).toFixed(1)}‰</div>
             </div>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
   
-  // Helper functions to calculate coordinates
+  // Helper functions to calculate coordinates - improved to use hours for X-axis
   function getXCoordinate(time: Date): number {
-    const timeRange = endTime.getTime() - startTime.getTime();
+    // Convert to hours since start
+    const hoursSinceStart = (time.getTime() - startTime.getTime()) / (60 * 60 * 1000);
     
-    if (timeRange === 0) return 20; // Handle edge case
+    // Calculate percentage based on total hours
+    const percent = hoursSinceStart / totalHours;
     
-    const percent = (time.getTime() - startTime.getTime()) / timeRange;
     // Leave padding on left side for y-axis labels
-    return 20 + percent * 80; // Increased left padding for y-axis labels
+    return 15 + percent * (100 - 15);
   }
   
   function getYCoordinate(bac: number): number {
@@ -382,11 +382,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
   
   function getXPercent(time: Date): number {
-    const timeRange = endTime.getTime() - startTime.getTime();
+    // Convert to hours since start
+    const hoursSinceStart = (time.getTime() - startTime.getTime()) / (60 * 60 * 1000);
     
-    if (timeRange === 0) return 0; // Handle edge case
-    
-    return ((time.getTime() - startTime.getTime()) / timeRange) * 100;
+    // Calculate percentage based on total hours
+    return (hoursSinceStart / totalHours) * 100;
   }
   
   function getYPercent(bac: number): number {
