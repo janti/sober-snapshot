@@ -11,7 +11,7 @@ interface BacChartGraphProps {
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const [chartData, setChartData] = useState<any[]>([]);
 
-  // Process data whenever it changes
+  // Transform data for recharts whenever input data changes
   useEffect(() => {
     if (data.length === 0) {
       setChartData([]);
@@ -21,11 +21,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Transform data for recharts with consistent formatting
     const transformedData = data.map(point => ({
       timestamp: point.time.getTime(),
-      time: point.time.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false
-      }),
+      time: formatTimeForDisplay(point.time),
       bac: point.bac,
       bacFormatted: (point.bac * 10).toFixed(1)
     }));
@@ -42,11 +38,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       if (soberTimestamp > lastDataPoint.timestamp) {
         transformedData.push({
           timestamp: soberTimestamp,
-          time: soberTime.toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false
-          }),
+          time: formatTimeForDisplay(soberTime),
           bac: 0.001, // Almost zero BAC at sober time
           bacFormatted: "0.0"
         });
@@ -55,77 +47,78 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
     setChartData(transformedData);
     
-    console.log("Chart data updated with transformed data:", {
+    console.log("Chart data updated:", {
       dataLength: transformedData.length,
       firstPoint: transformedData.length > 0 ? transformedData[0].time : null,
       lastPoint: transformedData.length > 0 ? transformedData[transformedData.length - 1].time : null,
-      soberTime: soberTime ? soberTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : null
+      soberTime: soberTime ? formatTimeForDisplay(soberTime) : null
     });
   }, [data, soberTime]);
 
-  // Format time to show hour only (e.g., "10:00")
-  const formatXAxis = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
+  // Format time consistently across the component
+  const formatTimeForDisplay = (date: Date): string => {
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
       minute: '2-digit',
       hour12: false
     });
   };
 
-  // Generate hourly ticks for X-axis
-  const generateHourlyTicks = () => {
+  // Format timestamp for X-axis display
+  const formatXAxis = (timestamp: number) => {
+    return formatTimeForDisplay(new Date(timestamp));
+  };
+
+  // Calculate hourly ticks for X-axis
+  const hourlyTicks = React.useMemo(() => {
     if (chartData.length === 0) return [];
     
+    // Find the earliest and latest timestamps in our data
     const firstTimestamp = chartData[0].timestamp;
-    const lastTimestamp = soberTime && soberTime.getTime() > chartData[chartData.length - 1].timestamp 
-      ? soberTime.getTime() 
-      : chartData[chartData.length - 1].timestamp;
+    const lastTimestamp = chartData[chartData.length - 1].timestamp;
     
-    // Start with the first hour after the first data point
-    const firstDate = new Date(firstTimestamp);
-    // Set to the next full hour
+    const startDate = new Date(firstTimestamp);
+    
+    // Round to the previous full hour
     const startHour = new Date(
-      firstDate.getFullYear(),
-      firstDate.getMonth(),
-      firstDate.getDate(),
-      firstDate.getHours() + (firstDate.getMinutes() > 0 ? 1 : 0),
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      startDate.getHours(),
       0, 0, 0
     );
     
+    // Generate hourly ticks
     const ticks = [];
     let currentTick = startHour.getTime();
     
     // Add hourly ticks until we reach beyond the last timestamp
-    while (currentTick <= lastTimestamp) {
+    while (currentTick <= lastTimestamp + (60 * 60 * 1000)) { // Add one extra hour for better visibility
       ticks.push(currentTick);
       currentTick += 60 * 60 * 1000; // Add 1 hour
     }
     
     return ticks;
-  };
+  }, [chartData]);
 
+  // Calculate domain for X-axis
+  const xDomain = React.useMemo(() => {
+    if (chartData.length === 0) return [0, 1];
+    
+    const xMin = chartData[0].timestamp;
+    const xMax = chartData[chartData.length - 1].timestamp;
+    
+    // Extend the domain slightly for better visualization
+    return [xMin, xMax + (15 * 60 * 1000)]; // Add 15 minutes to the end
+  }, [chartData]);
+
+  // Format tooltip values
   const formatTooltipValue = (value: number) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...data.map(d => d.bac), 0.1);
-
-  // Calculate domain for X-axis on every render
-  const xDomain = React.useMemo(() => {
-    if (chartData.length === 0) return [0, 1];
-    
-    const xMin = chartData[0].timestamp;
-    const xMax = soberTime && soberTime.getTime() > chartData[chartData.length - 1].timestamp
-      ? soberTime.getTime()
-      : chartData[chartData.length - 1].timestamp;
-    
-    return [xMin, xMax];
-  }, [chartData, soberTime]);
-
-  // Generate hourly ticks, recalculate on every render
-  const hourlyTicks = React.useMemo(() => generateHourlyTicks(), [chartData, soberTime]);
 
   return (
     <div className="h-64 w-full">
