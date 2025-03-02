@@ -22,36 +22,31 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Sort data by time
     const sortedData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
     
-    // Get the current time
+    // Use the most recent data point that is not in the future as the starting point
     const now = new Date();
+    const currentDataPoints = sortedData.filter(point => point.time <= now);
     
-    // Find the current BAC value (most recent data point)
-    const currentBac = sortedData.reduce((maxBac, point) => {
-      // Get most recent point's BAC
-      if (point.time <= now && point.bac > maxBac) {
-        return point.bac;
-      }
-      return maxBac;
-    }, 0);
-    
-    // For a straight line, we only need two points: current BAC and sober time (BAC = 0)
-    let finalData;
-    
-    if (soberTime) {
-      finalData = [
-        { time: now, bac: currentBac },
-        { time: soberTime, bac: 0 }
-      ];
-    } else {
-      // If no sober time, use a flat line for 3 hours
-      const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-      finalData = [
-        { time: now, bac: currentBac },
-        { time: threeHoursLater, bac: currentBac }
-      ];
+    // Find the current BAC value
+    let currentBac = 0;
+    if (currentDataPoints.length > 0) {
+      // Get the most recent point's BAC
+      currentBac = currentDataPoints[currentDataPoints.length - 1].bac;
     }
     
-    setChartData(finalData);
+    // For a straight line, we need the current point and sober time (BAC = 0)
+    if (soberTime && soberTime > now) {
+      setChartData([
+        { time: now, bac: currentBac },
+        { time: soberTime, bac: 0 }
+      ]);
+    } else {
+      // If no sober time or already sober, use a flat line for 3 hours
+      const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+      setChartData([
+        { time: now, bac: currentBac },
+        { time: threeHoursLater, bac: currentBac }
+      ]);
+    }
   }, [data, soberTime]);
 
   // Format time for display
@@ -75,10 +70,12 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for scaling (with minimum of 0.08 to ensure proper visualization)
   const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
-  // Get start and end times for the chart
-  const startTime = chartData[0].time; // Use the first data point's time
-  const endTime = soberTime || 
-    new Date(startTime.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours ahead
+  // Always use current time as start for x-axis
+  const now = new Date(); 
+  const startTime = now;
+  const endTime = soberTime && soberTime > now ? 
+    soberTime : 
+    new Date(now.getTime() + 3 * 60 * 60 * 1000);
   
   // Calculate total hours for the chart (minimum 3)
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
@@ -91,25 +88,29 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     hourInterval = 2;
   }
 
-  // Generate hour marks - create evenly spaced marks starting from start time
+  // Generate hour marks starting from current time at regular intervals
   const hourMarks: Date[] = [];
   
-  // Add start time as first mark
-  hourMarks.push(new Date(startTime));
+  // Always add the current time as first mark
+  hourMarks.push(new Date(now));
   
-  // Calculate how many marks we need based on total hours
-  const numberOfMarks = Math.min(5, Math.floor(totalHours) + 1);
+  // Add hour marks at fixed intervals
+  let currentHour = new Date(now);
+  currentHour.setMinutes(0, 0, 0); // Round to the current hour
   
-  // Create evenly spaced time marks
-  if (numberOfMarks > 1) {
-    const intervalHours = totalHours / (numberOfMarks - 1);
-    
-    for (let i = 1; i < numberOfMarks; i++) {
-      const markTime = new Date(startTime.getTime() + i * intervalHours * 60 * 60 * 1000);
-      hourMarks.push(markTime);
-    }
+  // If we're past the half-hour mark, move to the next hour
+  if (now.getMinutes() >= 30) {
+    currentHour.setHours(currentHour.getHours() + 1);
   }
-
+  
+  // Add hour marks at regular intervals
+  while (hourMarks.length < 5 && currentHour <= endTime) {
+    if (currentHour > now) { // Only add future hours
+      hourMarks.push(new Date(currentHour));
+    }
+    currentHour.setHours(currentHour.getHours() + hourInterval);
+  }
+  
   // Create BAC level marks with appropriate intervals, always including zero
   const bacMarks: number[] = [0]; // Start from zero
   let bacInterval = 0.02;
@@ -181,14 +182,16 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         {/* X-axis hour marks */}
         <div className="absolute bottom-0 left-0 right-0 flex">
           {hourMarks.map((timePoint, index) => {
-            // Calculate horizontal position as percentage of total chart width
-            const percentX = (index / (hourMarks.length - 1 || 1)) * 100;
+            // Calculate horizontal position as percentage of available chart width
+            const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+            const percentX = (hourDiff / totalHours) * 100;
+            const xPos = leftPadding + (percentX * (100 - leftPadding) / 100);
             
             return (
               <div 
                 key={`hour-${index}`} 
                 className="absolute"
-                style={{ left: `${leftPadding + (percentX * (100 - leftPadding) / 100)}%` }}
+                style={{ left: `${xPos}%` }}
               >
                 <div className={`h-full w-px bg-border opacity-50 absolute top-[-180px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
                 <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
@@ -200,11 +203,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         </div>
         
         {/* Show sober time if available */}
-        {soberTime && soberTime.getTime() > startTime.getTime() && (
+        {soberTime && soberTime > startTime && (
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (endTime.getTime() - startTime.getTime())) * (100 - leftPadding)}%` 
+              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
@@ -300,8 +303,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Helper functions to calculate coordinates
   function getXCoordinate(time: Date): number {
-    // Calculate percentage based on time position between start and end
-    const percent = (time.getTime() - startTime.getTime()) / (endTime.getTime() - startTime.getTime());
+    // Convert to hours since start
+    const hoursSinceStart = (time.getTime() - startTime.getTime()) / (60 * 60 * 1000);
+    
+    // Calculate percentage based on total hours
+    const percent = hoursSinceStart / totalHours;
     
     // Convert percentage to actual position - using actual percentage of available width
     return leftPadding + percent * (100 - leftPadding);
