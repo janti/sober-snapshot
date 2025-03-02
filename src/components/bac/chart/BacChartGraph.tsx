@@ -20,14 +20,27 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   // Process data when it changes
   useEffect(() => {
     console.log("Chart data updated with", data.length, "points");
+    
+    // If we have no data, reset chart data
     if (data.length === 0) {
       setChartData([]);
       return;
     }
 
-    // Use the provided data as our chart data
-    // This ensures we're displaying the full BAC curve over time
-    setChartData([...data]);
+    // Create a copy of the data so we don't modify the original
+    const newChartData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
+    
+    // If there's only one data point, duplicate it to ensure we have a line
+    if (newChartData.length === 1) {
+      // Add a point 1 hour later with slightly lower BAC
+      const nextTime = new Date(newChartData[0].time.getTime() + 60 * 60 * 1000);
+      newChartData.push({
+        time: nextTime,
+        bac: Math.max(0, newChartData[0].bac - 0.015) // Subtract standard elimination rate
+      });
+    }
+    
+    setChartData(newChartData);
     
   }, [data, soberTime]);
 
@@ -54,29 +67,34 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
   const now = new Date();
 
   // Define time range for x-axis
-  const startTime = now;
-  // Set end time to exactly 12 hours from now
-  const endTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+  const startTime = chartData[0].time; // Use first data point time as start
+  // Set end time to soberTime or 12 hours from now, whichever is earlier
+  const endTime = soberTime && soberTime < new Date(now.getTime() + 12 * 60 * 60 * 1000)
+    ? new Date(soberTime.getTime() + 60 * 60 * 1000) // Add 1 hour padding after sober time
+    : new Date(now.getTime() + 12 * 60 * 60 * 1000);
 
-  // Calculate total duration in hours (fixed at 12 hours)
-  const totalHours = 12;
+  // Calculate total duration in hours
+  const totalHours = (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000);
 
-  // Generate time markers for x-axis (exactly one per hour, for 12 hours)
+  // Generate time markers for x-axis
   const hourMarks: Date[] = [];
 
   // Add current time as first marker
-  hourMarks.push(new Date(now));
+  hourMarks.push(new Date(startTime));
 
-  // Generate even hourly markers for the next 12 hours
-  for (let i = 1; i <= 12; i++) {
-    const nextHour = new Date(now);
-    // Set minutes and seconds to 0 for the next hour
-    nextHour.setHours(now.getHours() + i, 0, 0, 0);
-    hourMarks.push(nextHour);
+  // Generate hourly markers from startTime to endTime
+  for (let i = 1; i <= Math.ceil(totalHours); i++) {
+    const nextHour = new Date(startTime);
+    nextHour.setHours(startTime.getHours() + i, 0, 0, 0);
+    
+    // Only add if it's not past our end time
+    if (nextHour <= endTime) {
+      hourMarks.push(nextHour);
+    }
   }
 
-  // If sober time doesn't fall on an hour mark and it's within our 12-hour window, add it
-  if (soberTime && soberTime > now && soberTime <= endTime) {
+  // If sober time doesn't fall on an hour mark and it's within our window, add it
+  if (soberTime && soberTime > startTime && soberTime <= endTime) {
     const isSoberTimeIncluded = hourMarks.some(mark => 
       Math.abs(mark.getTime() - soberTime.getTime()) < 60 * 1000 // Within a minute
     );

@@ -87,7 +87,7 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           fill="none"
         />
         
-        {/* Add dots and tooltips for data points */}
+        {/* Add dots for all points along the BAC line */}
         {chartData.map((point, index) => (
           <foreignObject
             key={index}
@@ -99,23 +99,24 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           >
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-[20px] h-[20px] flex items-center justify-center">
+                <div className="w-[20px] h-[20px] flex items-center justify-center group cursor-pointer">
                   <div 
-                    className={`w-[10px] h-[10px] rounded-full ${index === 0 ? 'bg-primary' : 'bg-primary/50'}`}
+                    className={`w-[6px] h-[6px] rounded-full group-hover:w-[10px] group-hover:h-[10px] transition-all
+                    ${index === 0 ? 'bg-primary w-[10px] h-[10px]' : 'bg-primary/70'}`}
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top" className="bg-card border-border p-2 shadow-md">
+              <TooltipContent side="top" className="bg-card border-border p-2 shadow-md z-50">
                 <div className="text-xs font-medium">
-                  <div>Time: {formatTime(point.time)}</div>
-                  <div>BAC: {(point.bac * 10).toFixed(1)}‰</div>
+                  <div className="font-bold">Time: {formatTime(point.time)}</div>
+                  <div>BAC: {(point.bac * 10).toFixed(2)}‰</div>
                 </div>
               </TooltipContent>
             </Tooltip>
           </foreignObject>
         ))}
         
-        {/* Current BAC point indicator */}
+        {/* Current BAC point indicator (highlighted) */}
         <circle
           cx={`${coordinates.getXCoordinate(chartData[0].time)}%`}
           cy={coordinates.getYCoordinate(chartData[0].bac)}
