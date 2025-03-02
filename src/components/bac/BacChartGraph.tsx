@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 
@@ -24,15 +25,14 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Get the current time
     const now = new Date();
     
-    // Find the current BAC by interpolating between data points
-    const currentBac = getCurrentBac(sortedData);
+    // Find the last known BAC value (most recent data point)
+    const currentPoint = sortedData.find(point => 
+      Math.abs(point.time.getTime() - now.getTime()) < 5 * 60 * 1000
+    ) || sortedData[sortedData.length - 1];
     
-    // Always ensure we have a point at the current time
-    const currentTimePoint = { time: now, bac: currentBac };
-    
-    // Include the current point and all future points
+    // Create the data points for the chart (current point + future points if any)
     const finalData = [
-      currentTimePoint,
+      { time: now, bac: currentPoint.bac },
       ...sortedData.filter(point => point.time.getTime() > now.getTime())
     ];
     
@@ -48,58 +48,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Get the current BAC by finding the closest data point to now
-  const getCurrentBac = (dataPoints: { time: Date; bac: number }[]): number => {
-    if (dataPoints.length === 0) return 0;
-    
-    const now = new Date().getTime();
-    
-    // Find the two data points that surround the current time
-    let beforePoint = null;
-    let afterPoint = null;
-    
-    for (const point of dataPoints) {
-      const pointTime = point.time.getTime();
-      
-      if (pointTime <= now) {
-        // This point is before or at now
-        if (!beforePoint || pointTime > beforePoint.time.getTime()) {
-          beforePoint = point;
-        }
-      } else {
-        // This point is after now
-        if (!afterPoint || pointTime < afterPoint.time.getTime()) {
-          afterPoint = point;
-        }
-      }
-    }
-    
-    // If we only have points before now, use the latest one
-    if (beforePoint && !afterPoint) {
-      return beforePoint.bac;
-    }
-    
-    // If we only have points after now, use the earliest one
-    if (!beforePoint && afterPoint) {
-      return afterPoint.bac;
-    }
-    
-    // If we have points before and after, interpolate
-    if (beforePoint && afterPoint) {
-      const timeDiff = afterPoint.time.getTime() - beforePoint.time.getTime();
-      const bacDiff = afterPoint.bac - beforePoint.bac;
-      const ratio = (now - beforePoint.time.getTime()) / timeDiff;
-      return beforePoint.bac + (bacDiff * ratio);
-    }
-    
-    // Default to 0 if no data
-    return 0;
-  };
-
   // If no data, show placeholder
   if (chartData.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
+      <div className="h-[200px] flex items-center justify-center text-muted-foreground">
         Add drinks to see your BAC chart
       </div>
     );
@@ -108,7 +60,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for scaling (with minimum of 0.08 to ensure proper visualization)
   const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
-  // Get start and end times for the chart - always start from current time
+  // Get start and end times for the chart
   const startTime = new Date(); // Always use current time as start
   const endTime = soberTime || 
     new Date(Math.max(
@@ -116,10 +68,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       startTime.getTime() + 3 * 60 * 60 * 1000 // At least 3 hours
     ));
   
-  // Calculate total hours for the chart (with a minimum of 3 hours to avoid too narrow display)
+  // Calculate total hours for the chart (minimum 3)
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
   
-  // Create hour interval based on total hours
+  // Determine hour interval based on total duration
   let hourInterval = 1; // Default to 1 hour
   if (totalHours > 12) {
     hourInterval = 3;
@@ -130,22 +82,22 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Generate hour marks from current time
   const hourMarks: Date[] = [];
   let currentHour = new Date(startTime);
-  currentHour.setMinutes(0, 0, 0);
   
-  // Ensure first mark is at or after current time
+  // Round to the nearest hour
+  currentHour.setMinutes(0, 0, 0);
   if (currentHour.getTime() < startTime.getTime()) {
     currentHour.setHours(currentHour.getHours() + 1);
   }
   
-  // Add hour marks at regular intervals until end time
+  // Add hour marks until end time
   while (currentHour.getTime() <= endTime.getTime()) {
     hourMarks.push(new Date(currentHour));
     currentHour.setHours(currentHour.getHours() + hourInterval);
   }
 
-  // Create BAC level marks with appropriate intervals, skipping zero
-  const bacMarks: number[] = [];
-  let bacInterval = 0.02; // default for small values
+  // Create BAC level marks with appropriate intervals, including zero
+  const bacMarks: number[] = [0]; // Start from zero
+  let bacInterval = 0.02;
   
   if (maxBac > 0.4) {
     bacInterval = 0.1;
@@ -153,26 +105,21 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     bacInterval = 0.05;
   }
   
-  // Start from first interval (skip zero)
-  const roundedMaxBac = Math.ceil(maxBac / bacInterval) * bacInterval;
-  for (let level = bacInterval; level <= roundedMaxBac; level += bacInterval) {
+  for (let level = bacInterval; level <= maxBac; level += bacInterval) {
     bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
   }
 
-  // Calculate chart dimensions
-  const chartHeight = 200; // Reduced height to prevent overflow
-  const leftPadding = 50; // Padding for Y-axis labels
-
-  // Find current BAC value
-  const currentBacValue = chartData.length > 0 ? chartData[0].bac : 0;
+  // Chart dimensions - reduce height to prevent overflow
+  const chartHeight = 180;
+  const leftPadding = 40;
 
   return (
-    <div className="w-full h-[240px] relative mb-2">
+    <div className="w-full h-[230px] relative mb-2">
       {/* Chart container */}
-      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-2 pr-2" style={{ height: chartHeight }}>
+      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-2" style={{ height: chartHeight }}>
         {/* Horizontal grid lines and Y-axis labels */}
         {bacMarks.map((level, index) => {
-          const percentY = 100 - (level / roundedMaxBac) * 100;
+          const percentY = 100 - (level / maxBac) * 100;
           
           return (
             <div 
@@ -180,7 +127,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               className="absolute w-full border-t border-border border-opacity-50 flex items-center"
               style={{ top: `${percentY}%`, left: 0 }}
             >
-              <span className="absolute -left-[40px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute -left-[36px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -188,11 +135,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         })}
         
         {/* Draw legal limit lines */}
-        {LEGAL_LIMITS.regular <= roundedMaxBac && (
+        {LEGAL_LIMITS.regular <= maxBac && (
           <div 
             className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
             style={{ 
-              top: `${100 - (LEGAL_LIMITS.regular / roundedMaxBac) * 100}%`,
+              top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
               zIndex: 5
             }}
           >
@@ -202,11 +149,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           </div>
         )}
         
-        {LEGAL_LIMITS.professional <= roundedMaxBac && (
+        {LEGAL_LIMITS.professional <= maxBac && (
           <div 
             className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
             style={{ 
-              top: `${100 - (LEGAL_LIMITS.professional / roundedMaxBac) * 100}%`,
+              top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
               zIndex: 5
             }}
           >
@@ -219,10 +166,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         {/* X-axis hour marks */}
         <div className="absolute bottom-0 left-0 right-0 h-6 flex">
           {hourMarks.map((timePoint, index) => {
-            // Calculate time difference in hours from start time
+            // Calculate horizontal position
             const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
-            
-            // Calculate position as percentage of chart width
             const percentX = (hourDiff / totalHours) * 100;
             
             return (
@@ -231,7 +176,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
                 className="absolute"
                 style={{ left: `${leftPadding + (percentX * (100 - leftPadding) / 100)}px` }}
               >
-                <div className="h-full w-px bg-border opacity-50 absolute top-[-200px]"></div>
+                <div className="h-full w-px bg-border opacity-50 absolute top-[-180px]"></div>
                 <div className="absolute -translate-x-1/2 text-xs text-muted-foreground font-medium whitespace-nowrap">
                   {formatTime(timePoint)}
                 </div>
@@ -257,7 +202,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           </div>
         )}
 
-        {/* Draw the BAC line and area */}
+        {/* Draw the BAC line - make it a simple straight line */}
         <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
           <defs>
             <linearGradient id="bacGradient" x1="0" y1="0" x2="0" y2="1">
@@ -268,43 +213,48 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           
           {chartData.length > 0 && (
             <>
-              {/* Draw area under the line */}
-              <path
-                d={`
-                  M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-                  ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-                  L ${getXCoordinate(chartData[chartData.length - 1].time)} ${chartHeight}
-                  L ${getXCoordinate(chartData[0].time)} ${chartHeight}
-                  Z
-                `}
-                fill="url(#bacGradient)"
-              />
+              {/* Only draw from current time to sober time or just a simple line */}
+              {chartData.length >= 2 ? (
+                <>
+                  {/* Draw area under the line */}
+                  <path
+                    d={`
+                      M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
+                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${chartHeight}
+                      L ${getXCoordinate(chartData[0].time)} ${chartHeight}
+                      Z
+                    `}
+                    fill="url(#bacGradient)"
+                  />
+                  
+                  {/* Draw the line */}
+                  <path
+                    d={`
+                      M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
+                    `}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="2.5"
+                    fill="none"
+                  />
+                </>
+              ) : (
+                <>
+                  {/* If we only have one point, draw a flat line */}
+                  <path
+                    d={`
+                      M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+                      L ${getXCoordinate(new Date(chartData[0].time.getTime() + 3 * 60 * 60 * 1000))} ${getYCoordinate(chartData[0].bac)}
+                    `}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="2.5"
+                    fill="none"
+                  />
+                </>
+              )}
               
-              {/* Draw the line */}
-              <path
-                d={`
-                  M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-                  ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-                `}
-                stroke="hsl(var(--primary))"
-                strokeWidth="2.5"
-                fill="none"
-              />
-              
-              {/* Draw data points */}
-              {chartData.map((point, index) => (
-                <circle
-                  key={index}
-                  cx={getXCoordinate(point.time)}
-                  cy={getYCoordinate(point.bac)}
-                  r="3.5"
-                  fill="hsl(var(--primary))"
-                  stroke="var(--background)"
-                  strokeWidth="1.5"
-                />
-              ))}
-              
-              {/* Highlight current time point */}
+              {/* Add circle for current point */}
               <circle
                 cx={getXCoordinate(chartData[0].time)}
                 cy={getYCoordinate(chartData[0].bac)}
@@ -348,9 +298,9 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   function getYCoordinate(bac: number): number {
     // SVG coordinates go from top to bottom, so we need to invert
-    if (roundedMaxBac === 0) return chartHeight - 5; // Handle edge case
+    if (maxBac === 0) return chartHeight - 5; // Handle edge case
     
-    const percent = bac / roundedMaxBac;
+    const percent = bac / maxBac;
     // Leave 5% padding at the top
     return chartHeight - (percent * chartHeight);
   }
