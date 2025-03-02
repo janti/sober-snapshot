@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 
@@ -31,7 +32,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Always start from current time with current BAC
     if (sortedData.length > 0) {
       // Get current BAC by using the first data point or interpolating
-      const currentBac = getCurrentBac();
+      const currentBac = getCurrentBac(data);
       
       // Add or update the current time point
       const currentTimePointIndex = sortedData.findIndex(
@@ -57,6 +58,52 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       minute: '2-digit',
       hour12: false
     });
+  };
+
+  // Get the current BAC by finding the closest data point to now
+  const getCurrentBac = (dataPoints: { time: Date; bac: number }[]): number => {
+    const now = new Date().getTime();
+    
+    // Find the two data points that surround the current time
+    let beforePoint = null;
+    let afterPoint = null;
+    
+    for (const point of dataPoints) {
+      const pointTime = point.time.getTime();
+      
+      if (pointTime <= now) {
+        // This point is before or at now
+        if (!beforePoint || pointTime > beforePoint.time.getTime()) {
+          beforePoint = point;
+        }
+      } else {
+        // This point is after now
+        if (!afterPoint || pointTime < afterPoint.time.getTime()) {
+          afterPoint = point;
+        }
+      }
+    }
+    
+    // If we only have points before now, use the latest one
+    if (beforePoint && !afterPoint) {
+      return beforePoint.bac;
+    }
+    
+    // If we only have points after now, use the earliest one
+    if (!beforePoint && afterPoint) {
+      return afterPoint.bac;
+    }
+    
+    // If we have points before and after, interpolate
+    if (beforePoint && afterPoint) {
+      const timeDiff = afterPoint.time.getTime() - beforePoint.time.getTime();
+      const bacDiff = afterPoint.bac - beforePoint.bac;
+      const ratio = (now - beforePoint.time.getTime()) / timeDiff;
+      return beforePoint.bac + (bacDiff * ratio);
+    }
+    
+    // Default to 0 if no data
+    return 0;
   };
 
   // If no data, show placeholder
@@ -132,52 +179,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate chart dimensions for proper scaling
   const chartHeight = 300; // pixels
   const chartWidth = "100%"; // Use full width of container
-
-  // Get the current BAC by finding the closest data point to now
-  const getCurrentBac = () => {
-    const now = new Date().getTime();
-    
-    // Find the two data points that surround the current time
-    let beforePoint = null;
-    let afterPoint = null;
-    
-    for (const point of data) {
-      const pointTime = point.time.getTime();
-      
-      if (pointTime <= now) {
-        // This point is before or at now
-        if (!beforePoint || pointTime > beforePoint.time.getTime()) {
-          beforePoint = point;
-        }
-      } else {
-        // This point is after now
-        if (!afterPoint || pointTime < afterPoint.time.getTime()) {
-          afterPoint = point;
-        }
-      }
-    }
-    
-    // If we only have points before now, use the latest one
-    if (beforePoint && !afterPoint) {
-      return beforePoint.bac;
-    }
-    
-    // If we only have points after now, use the earliest one
-    if (!beforePoint && afterPoint) {
-      return afterPoint.bac;
-    }
-    
-    // If we have points before and after, interpolate
-    if (beforePoint && afterPoint) {
-      const timeDiff = afterPoint.time.getTime() - beforePoint.time.getTime();
-      const bacDiff = afterPoint.bac - beforePoint.bac;
-      const ratio = (now - beforePoint.time.getTime()) / timeDiff;
-      return beforePoint.bac + (bacDiff * ratio);
-    }
-    
-    // Default to 0 if no data
-    return 0;
-  };
 
   // Create a straight-line version of the data
   const straightLineData = chartData.filter(point => point.time.getTime() >= startTime.getTime());
