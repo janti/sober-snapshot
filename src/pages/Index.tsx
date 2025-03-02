@@ -2,11 +2,13 @@
 import React from 'react';
 import BacCalculator from '@/components/BacCalculator';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 
-const Index = () => {
+const IndexContent = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { language, setLanguage, t } = useLanguage();
 
   // Initialize theme based on system preference
   useEffect(() => {
@@ -30,10 +32,23 @@ const Index = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
+  const toggleLanguage = () => {
+    setLanguage(language === 'fi' ? 'en' : 'fi');
+  };
+
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
-      {/* Theme toggle */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Theme & Language toggles */}
+      <div className="fixed top-4 right-4 z-50 flex gap-2">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={toggleLanguage}
+          className="rounded-full w-10 h-10 shadow-lg bg-background"
+          title={t('language.switch')}
+        >
+          <Globe className="h-5 w-5" />
+        </Button>
         <Button 
           variant="outline" 
           size="icon" 
@@ -53,14 +68,22 @@ const Index = () => {
         
         <footer className="mt-12 text-center text-sm text-muted-foreground">
           <p className="mb-1">
-            This calculator is for educational purposes only and should not be used to determine fitness to drive.
+            {t('footer.disclaimer1')}
           </p>
           <p>
-            Always drink responsibly and never drive under the influence of alcohol.
+            {t('footer.disclaimer2')}
           </p>
         </footer>
       </div>
     </div>
+  );
+};
+
+const Index = () => {
+  return (
+    <LanguageProvider>
+      <IndexContent />
+    </LanguageProvider>
   );
 };
 

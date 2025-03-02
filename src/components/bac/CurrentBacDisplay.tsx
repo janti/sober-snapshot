@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle, BadgeCheck, IceCream } from 'lucide-react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface CurrentBacDisplayProps {
   currentBac: number;
@@ -14,12 +15,14 @@ const CurrentBacDisplay: React.FC<CurrentBacDisplayProps> = ({
   currentBac,
   onRefresh
 }) => {
+  const { t } = useLanguage();
+
   // Get BAC status message and color
   const getBacStatus = () => {
-    if (currentBac === 0) return { message: "Sober", icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
-    if (currentBac <= LEGAL_LIMITS.professional) return { message: "Below Professional Limit", icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
-    if (currentBac <= LEGAL_LIMITS.regular) return { message: "Below Regular Limit", icon: <AlertTriangle className="h-5 w-5" />, color: "text-amber-500" };
-    return { message: "Above Legal Limit", icon: <AlertTriangle className="h-5 w-5" />, color: "text-red-500" };
+    if (currentBac === 0) return { message: t('bac.status.sober'), icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
+    if (currentBac <= LEGAL_LIMITS.professional) return { message: t('bac.status.belowProfessional'), icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
+    if (currentBac <= LEGAL_LIMITS.regular) return { message: t('bac.status.belowRegular'), icon: <AlertTriangle className="h-5 w-5" />, color: "text-amber-500" };
+    return { message: t('bac.status.aboveLimit'), icon: <AlertTriangle className="h-5 w-5" />, color: "text-red-500" };
   };
 
   const status = getBacStatus();
@@ -30,7 +33,7 @@ const CurrentBacDisplay: React.FC<CurrentBacDisplayProps> = ({
         <div className="flex items-center gap-2">
           <IceCream className="h-5 w-5 text-accent" />
           <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Current BAC
+            {t('bac.current')}
           </div>
           <IceCream className="h-5 w-5 text-accent" />
         </div>
@@ -48,7 +51,7 @@ const CurrentBacDisplay: React.FC<CurrentBacDisplayProps> = ({
           className="mt-3 text-xs flex items-center gap-1 hover:bg-secondary/80"
         >
           <RefreshCw className="h-3 w-3" />
-          <span>Refresh</span>
+          <span>{t('bac.refresh')}</span>
         </Button>
       </CardContent>
     </Card>

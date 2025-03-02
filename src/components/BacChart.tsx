@@ -5,6 +5,7 @@ import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import { Badge } from "@/components/ui/badge";
 import { CarFront, CarTaxiFront, IceCreamCone } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface BacChartProps {
   data: { time: Date; bac: number }[];
@@ -13,6 +14,8 @@ interface BacChartProps {
 }
 
 const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
+  const { t } = useLanguage();
+  
   // Convert data to a format that Recharts can understand
   const chartData = data.map(point => ({
     // Use timestamp for X axis
@@ -53,17 +56,20 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
     const diffMs = date.getTime() - now.getTime();
     
     // Less than a minute remaining
-    if (diffMs < 60000) return 'Less than a minute';
+    if (diffMs < 60000) return t('time.lessThanMinute');
+    
+    // Already sober
+    if (diffMs < 0) return t('time.youAreSober');
     
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
     let result = '';
     if (diffHours > 0) {
-      result += `${diffHours} hour${diffHours > 1 ? 's' : ''} `;
+      result += `${diffHours} ${diffHours === 1 ? t('time.hour') : t('time.hours')} `;
     }
     if (diffMinutes > 0 || diffHours === 0) {
-      result += `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+      result += `${diffMinutes} ${diffMinutes === 1 ? t('time.minute') : t('time.minutes')}`;
     }
     
     return result;
@@ -77,11 +83,11 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
             <div className="flex items-center gap-2">
               <IceCreamCone className="h-5 w-5 text-accent" />
               <CardTitle className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                BAC Over Time
+                {t('chart.title')}
               </CardTitle>
             </div>
             <CardDescription>
-              Blood Alcohol Concentration visualization
+              {t('chart.description')}
             </CardDescription>
           </div>
           <div className="flex flex-col gap-2 items-end">
@@ -90,14 +96,14 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
               className="flex gap-1 items-center shadow-sm"
             >
               <CarFront className="h-3 w-3" />
-              <span>{(LEGAL_LIMITS.regular * 10).toFixed(1)}‰ limit</span>
+              <span>{(LEGAL_LIMITS.regular * 10).toFixed(1)}‰ {t('chart.regularLimit')}</span>
             </Badge>
             <Badge 
               variant={isAboveProfessionalLimit ? "destructive" : "outline"}
               className="flex gap-1 items-center shadow-sm"
             >
               <CarTaxiFront className="h-3 w-3" />
-              <span>{(LEGAL_LIMITS.professional * 10).toFixed(1)}‰ limit</span>
+              <span>{(LEGAL_LIMITS.professional * 10).toFixed(1)}‰ {t('chart.professionalLimit')}</span>
             </Badge>
           </div>
         </div>
@@ -120,9 +126,9 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <XAxis 
                   dataKey="timestamp" 
                   tickFormatter={formatXAxis} 
-                  tick={{ fontSize: 12 }}
-                  stroke="var(--muted-foreground)"
-                  tickLine={{ stroke: 'var(--muted-foreground)' }}
+                  tick={{ fontSize: 12, fill: "#33C3F0" }}
+                  stroke="#8E9196"
+                  tickLine={{ stroke: '#8E9196' }}
                   domain={['dataMin', 'dataMax']}
                   type="number"
                   scale="time"
@@ -131,10 +137,10 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <YAxis 
                   tickFormatter={value => `${(value * 10).toFixed(1)}`}
                   domain={[0, maxBac * 1.1]} 
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: "#33C3F0" }}
                   unit="‰"
-                  stroke="var(--muted-foreground)"
-                  tickLine={{ stroke: 'var(--muted-foreground)' }}
+                  stroke="#8E9196"
+                  tickLine={{ stroke: '#8E9196' }}
                   allowDecimals={true}
                   minTickGap={10}
                 />
@@ -144,7 +150,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                     return formatXAxis(value as number);
                   }}
                   contentStyle={{
-                    backgroundColor: 'var(--background)',
+                    backgroundColor: 'var(--card)',
                     borderColor: 'var(--border)',
                     borderRadius: '8px',
                     padding: '8px',
@@ -159,7 +165,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                   stroke="#f43f5e" 
                   strokeDasharray="3 3" 
                   label={{ 
-                    value: "Regular Limit",
+                    value: t('chart.regularLimit'),
                     position: "insideBottomRight",
                     fill: "#f43f5e",
                     fontSize: 10
@@ -170,7 +176,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                   stroke="#f59e0b" 
                   strokeDasharray="3 3" 
                   label={{ 
-                    value: "Professional Limit",
+                    value: t('chart.professionalLimit'),
                     position: "insideBottomRight",
                     fill: "#f59e0b",
                     fontSize: 10
@@ -191,18 +197,18 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground">
               {data.length === 0 
-                ? "No data to display yet. Add some drinks to see your BAC chart." 
-                : "Add more data points to display the chart."}
+                ? t('chart.noData') 
+                : t('chart.moreData')}
             </div>
           )}
         </div>
 
         {soberTime && data.length > 0 && (
           <div className="p-4 bg-secondary rounded-lg shadow-inner">
-            <div className="text-sm font-medium">Time until sober (BAC &lt; 0.01%)</div>
+            <div className="text-sm font-medium">{t('time.untilSober')}</div>
             <div className="text-2xl font-bold mt-1 text-primary">{formatSoberTime(soberTime)}</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Estimated sober at {soberTime.toLocaleTimeString([], { 
+              {t('time.soberAt')} {soberTime.toLocaleTimeString([], { 
                 hour: '2-digit', 
                 minute: '2-digit',
                 hour12: true
