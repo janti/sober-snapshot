@@ -25,19 +25,30 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Get the current time
     const now = new Date();
     
-    // Find the last known BAC value (most recent data point)
+    // Find the current BAC value (most recent data point)
     const currentPoint = sortedData.find(point => 
       Math.abs(point.time.getTime() - now.getTime()) < 5 * 60 * 1000
     ) || sortedData[sortedData.length - 1];
     
-    // Create the data points for the chart (current point + future points if any)
-    const finalData = [
-      { time: now, bac: currentPoint.bac },
-      ...sortedData.filter(point => point.time.getTime() > now.getTime())
-    ];
+    // For a straight line, we only need two points: current BAC and sober time (BAC = 0)
+    let finalData;
+    
+    if (soberTime) {
+      finalData = [
+        { time: now, bac: currentPoint.bac },
+        { time: soberTime, bac: 0 }
+      ];
+    } else {
+      // If no sober time, use a flat line for 3 hours
+      const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+      finalData = [
+        { time: now, bac: currentPoint.bac },
+        { time: threeHoursLater, bac: currentPoint.bac }
+      ];
+    }
     
     setChartData(finalData);
-  }, [data]);
+  }, [data, soberTime]);
 
   // Format time for display - using hours only
   const formatTime = (date: Date): string => {
@@ -95,7 +106,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     currentHour.setHours(currentHour.getHours() + hourInterval);
   }
 
-  // Create BAC level marks with appropriate intervals, including zero
+  // Create BAC level marks with appropriate intervals, always including zero
   const bacMarks: number[] = [0]; // Start from zero
   let bacInterval = 0.02;
   
@@ -166,7 +177,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         {/* X-axis hour marks */}
         <div className="absolute bottom-0 left-0 right-0 flex">
           {hourMarks.map((timePoint, index) => {
-            // Calculate horizontal position - adjust to use the full width correctly
+            // Calculate horizontal position as percentage of available chart width
             const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
             const percentX = (hourDiff / totalHours) * 100;
             const xPos = leftPadding + (percentX * (100 - leftPadding) / 100);
@@ -214,15 +225,15 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           
           {chartData.length > 0 && (
             <>
-              {/* Only draw from current time to sober time or just a simple line */}
+              {/* Draw a straight line from current BAC to zero at sober time */}
               {chartData.length >= 2 ? (
                 <>
                   {/* Draw area under the line */}
                   <path
                     d={`
                       M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
-                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${chartHeight}
+                      L ${getXCoordinate(chartData[1].time)} ${getYCoordinate(chartData[1].bac)}
+                      L ${getXCoordinate(chartData[1].time)} ${chartHeight}
                       L ${getXCoordinate(chartData[0].time)} ${chartHeight}
                       Z
                     `}
@@ -233,7 +244,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
                   <path
                     d={`
                       M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
-                      L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
+                      L ${getXCoordinate(chartData[1].time)} ${getYCoordinate(chartData[1].bac)}
                     `}
                     stroke="hsl(var(--primary))"
                     strokeWidth="2.5"
