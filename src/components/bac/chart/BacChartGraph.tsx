@@ -143,10 +143,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
       // Calculate position as percentage of total time range
       const timePosition = time.getTime() - startTime.getTime();
       const totalTimeRange = endTime.getTime() - startTime.getTime();
-      const percentage = timePosition / totalTimeRange * 100;
-
-      // Apply left padding
-      return leftPadding / 100 * (100 - leftPadding) + percentage / 100 * (100 - leftPadding);
+      // Ensure the percentage is between 0 and 100
+      const percentage = Math.max(0, Math.min(100, (timePosition / totalTimeRange * 100)));
+      
+      return percentage;
     },
     getYCoordinate(bac: number): number {
       // Invert y-coordinate (0 at bottom, maxBac at top)

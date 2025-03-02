@@ -45,11 +45,14 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
         {hourMarks.map((timePoint, index) => {
           const xPosition = coordinates.getXCoordinate(timePoint);
           
-          // Only render if we have a valid time
-          if (isNaN(xPosition)) return null;
+          // Only render if we have a valid time and it's within our chart bounds
+          if (isNaN(xPosition) || xPosition < 0 || xPosition > 100) return null;
           
           // Determine if this is a full hour for styling
           const isFullHour = timePoint.getMinutes() === 0;
+          
+          // Make the current time (first marker) more prominent
+          const isCurrentTime = index === 0;
           
           return (
             <div 
@@ -57,8 +60,8 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
               className="absolute"
               style={{ left: `${xPosition}%` }}
             >
-              <div className={`h-full w-px ${isFullHour ? 'bg-border' : 'bg-border opacity-30'} absolute top-[-${chartHeight}px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
-              <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
+              <div className={`h-full w-px ${isFullHour ? 'bg-border' : 'bg-border opacity-30'} absolute top-[-${chartHeight}px] ${isCurrentTime ? 'bg-primary bg-opacity-50 w-[2px]' : ''}`}></div>
+              <div className={`absolute -translate-x-1/2 text-xs whitespace-nowrap ${isCurrentTime ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
                 {formatTime(timePoint)}
               </div>
             </div>
