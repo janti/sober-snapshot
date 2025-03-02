@@ -32,26 +32,21 @@ const BacCalculator: React.FC = () => {
   // Current status
   const [currentBac, setCurrentBac] = useState(0);
 
-  // Force refresh of calculations (use timestamp to avoid reference issues)
-  const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
+  // Force refresh of calculations
+  const [refreshCounter, setRefreshCounter] = useState(0);
   
   // Set up interval to update current BAC regularly
   useEffect(() => {
-    console.log("Setting up BAC update interval");
     const intervalId = setInterval(() => {
-      console.log("Interval update triggered");
-      setRefreshTimestamp(Date.now());
-    }, 30000); // Update every 30 seconds - less frequent to reduce rendering
+      setRefreshCounter(prev => prev + 1);
+    }, 30000); // Update every 30 seconds
     
-    return () => {
-      console.log("Clearing BAC update interval");
-      clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
   }, []);
   
-  // Update calculations when user data, drinks, or refresh timestamp changes
+  // Update calculations when user data, drinks, or refresh counter changes
   useEffect(() => {
-    console.log("Updating BAC calculations, drinks:", drinks.length, "refreshTimestamp:", refreshTimestamp);
+    console.log("Updating BAC calculations, drinks:", drinks.length);
     
     if (userData.weight <= 0 || drinks.length === 0) {
       setBacData([]);
@@ -60,35 +55,58 @@ const BacCalculator: React.FC = () => {
       return;
     }
     
-    // Calculate BAC over time for the chart
-    const startTime = new Date(Math.min(
-      ...drinks.map(d => d.timestamp.getTime()),
-      new Date().getTime() // Include current time in the minimum calculation
-    ));
-      
-    // Look ahead 24 hours maximum from now or until sober (whichever is longer)
+    // Calculate estimated sober time
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
     
-    // Set end time to at least sober time + 1 hour or 24 hours from now
-    const endTime = new Date(Math.max(
-      estimatedSoberTime ? estimatedSoberTime.getTime() + 60 * 60 * 1000 : 0, // 1 hour after sober
-      new Date().getTime() + 24 * 60 * 60 * 1000 // Max 24 hours from now
+    // Determine start and end times for calculation
+    const startTime = new Date(Math.min(
+      ...drinks.map(d => d.timestamp.getTime()),
+      new Date().getTime()
     ));
     
-    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 5); // 5-minute intervals
-    console.log("Generated BAC points:", bacPoints.length);
-    setBacData(bacPoints);
+    // Set end time to at least sober time + 2 hours or 24 hours from now
+    const endTime = new Date(Math.max(
+      estimatedSoberTime ? estimatedSoberTime.getTime() + 2 * 60 * 60 * 1000 : 0,
+      new Date().getTime() + 24 * 60 * 60 * 1000
+    ));
     
-    // Get current BAC using dedicated function
+    // Calculate BAC points at 10-minute intervals
+    const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
+    
+    // Ensure we always have at least 10 data points for a good visualization
+    if (bacPoints.length < 10) {
+      const totalDuration = endTime.getTime() - startTime.getTime();
+      const interval = totalDuration / 9; // 9 intervals to get 10 points
+      
+      const enhancedPoints: { time: Date; bac: number }[] = [];
+      for (let i = 0; i < 10; i++) {
+        const pointTime = new Date(startTime.getTime() + i * interval);
+        
+        // Find the closest actual point or interpolate
+        const closestPoint = bacPoints.reduce((prev, curr) => {
+          return Math.abs(curr.time.getTime() - pointTime.getTime()) < 
+                 Math.abs(prev.time.getTime() - pointTime.getTime()) ? curr : prev;
+        }, bacPoints[0]);
+        
+        enhancedPoints.push({
+          time: pointTime,
+          bac: closestPoint.bac
+        });
+      }
+      
+      setBacData(enhancedPoints);
+    } else {
+      setBacData(bacPoints);
+    }
+    
+    // Get current BAC
     const currentBacValue = getCurrentBac(userData, drinks);
-    console.log("Updated current BAC:", currentBacValue);
     setCurrentBac(currentBacValue);
     
     // Update sober time
-    console.log("Updated sober time:", estimatedSoberTime);
     setSoberTime(estimatedSoberTime);
     
-  }, [userData, drinks, refreshTimestamp]);
+  }, [userData, drinks, refreshCounter]);
   
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
@@ -97,7 +115,7 @@ const BacCalculator: React.FC = () => {
     setDrinks(newDrinks);
     
     // Force immediate update with new timestamp
-    setRefreshTimestamp(Date.now());
+    setRefreshCounter(Date.now());
     
     // Show toast notification
     toast({
@@ -113,7 +131,7 @@ const BacCalculator: React.FC = () => {
     setDrinks(newDrinks);
     
     // Force immediate update with new timestamp
-    setRefreshTimestamp(Date.now());
+    setRefreshCounter(Date.now());
   };
   
   // Handle resetting the calculator
@@ -133,8 +151,7 @@ const BacCalculator: React.FC = () => {
   // Update BAC calculation when the component is first loaded or on manual refresh
   const refreshCalculations = () => {
     console.log("Manual refresh triggered");
-    // Force a fresh calculation with new timestamp
-    setRefreshTimestamp(Date.now());
+    setRefreshCounter(prev => prev + 1);
   };
 
   return (

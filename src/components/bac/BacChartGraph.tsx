@@ -1,7 +1,6 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
 interface BacChartGraphProps {
   data: { time: Date; bac: number }[];
@@ -9,11 +8,22 @@ interface BacChartGraphProps {
 }
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
-  const [chartData, setChartData] = useState<any[]>([]);
-  const prevDataRef = useRef<string>("");
+  const [chartData, setChartData] = useState<{ time: Date; bac: number }[]>([]);
   
-  // Format time consistently across the component
-  const formatTimeForDisplay = (date: Date): string => {
+  // Process data when it changes
+  useEffect(() => {
+    if (data.length === 0) {
+      setChartData([]);
+      return;
+    }
+    
+    // Sort data by time
+    const sortedData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
+    setChartData(sortedData);
+  }, [data]);
+
+  // Format time for display
+  const formatTime = (date: Date): string => {
     return date.toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit',
@@ -21,240 +31,197 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     });
   };
 
-  // Transform data for recharts whenever input data changes
-  useEffect(() => {
-    console.log("Processing new BAC data for chart, points:", data.length);
-    
-    if (data.length === 0) {
-      setChartData([]);
-      return;
-    }
-    
-    // Get current time
-    const now = new Date();
-    
-    // Transform data for recharts with consistent formatting
-    let transformedData = data.map(point => ({
-      timestamp: point.time.getTime(),
-      time: formatTimeForDisplay(point.time),
-      bac: point.bac,
-      bacFormatted: (point.bac * 10).toFixed(1)
-    }));
-
-    // Sort data by timestamp to ensure chronological order
-    transformedData.sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Filter to show only current and future data points
-    transformedData = transformedData.filter(point => 
-      point.timestamp >= now.getTime() - 5 * 60 * 1000 // Include 5 min before now for context
-    );
-
-    // If we have a sober time and it's not already in our data, add it to the chart
-    if (soberTime && transformedData.length > 0) {
-      const soberTimestamp = soberTime.getTime();
-      
-      // Check if sober time is already represented in our data points
-      const soberTimeExists = transformedData.some(point => 
-        Math.abs(point.timestamp - soberTimestamp) < 60 * 1000
-      );
-      
-      // Only add the sober time point if it's not already represented
-      if (!soberTimeExists && soberTimestamp > now.getTime()) {
-        transformedData.push({
-          timestamp: soberTimestamp,
-          time: formatTimeForDisplay(soberTime),
-          bac: 0.001, // Almost zero BAC at sober time
-          bacFormatted: "0.0"
-        });
-        
-        // Re-sort after adding
-        transformedData.sort((a, b) => a.timestamp - b.timestamp);
-      }
-    }
-
-    // Make sure the chart always extends at least 1 hour into future for better visualization
-    const lastPoint = transformedData[transformedData.length - 1];
-    if (lastPoint && lastPoint.timestamp < now.getTime() + 60 * 60 * 1000) {
-      const oneHourLater = new Date(Math.max(
-        now.getTime() + 60 * 60 * 1000,
-        lastPoint.timestamp + 5 * 60 * 1000 // At least 5 minutes after last point
-      ));
-      
-      transformedData.push({
-        timestamp: oneHourLater.getTime(),
-        time: formatTimeForDisplay(oneHourLater),
-        bac: 0, // Assume zero BAC in future extension point
-        bacFormatted: "0.0"
-      });
-    }
-    
-    // Log the generated chart data for debugging
-    console.log("Chart data generated:", {
-      pointCount: transformedData.length,
-      timeRange: transformedData.length > 0 ? 
-        `${transformedData[0].time} to ${transformedData[transformedData.length-1].time}` : 
-        "none",
-      soberTime: soberTime ? formatTimeForDisplay(soberTime) : "none"
-    });
-    
-    setChartData(transformedData);
-  }, [data, soberTime]);
-
-  // Calculate max BAC for y-axis scale (with minimum of 0.1)
+  // Calculate max BAC for scaling (with minimum of 0.1)
   const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
   
-  // Improved X-axis display
-  const formatXAxis = (timestamp: number) => {
-    const date = new Date(timestamp);
-    // Use 24-hour format with leading zeros for consistency
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-  
-  // Calculate appropriate ticks for X-axis - focus on showing even hours
-  const getXTicks = () => {
-    if (chartData.length < 2) return [];
-    
-    const ticks = [];
-    const startTime = new Date(chartData[0].timestamp);
-    const endTime = new Date(chartData[chartData.length - 1].timestamp);
-    
-    // Start from the next even hour after start time
-    let currentHour = startTime.getHours();
-    let tickDate = new Date(startTime);
-    
-    // Round up to next hour
-    tickDate.setHours(currentHour + 1, 0, 0, 0);
-    
-    // Add hourly ticks
-    while (tickDate <= endTime) {
-      ticks.push(tickDate.getTime());
-      
-      // Move to next hour
-      tickDate = new Date(tickDate);
-      tickDate.setHours(tickDate.getHours() + 1);
-    }
-    
-    // Ensure we have at least the start and end points
-    if (ticks.length === 0) {
-      ticks.push(startTime.getTime());
-      ticks.push(endTime.getTime());
-    } else if (!ticks.includes(startTime.getTime())) {
-      ticks.unshift(startTime.getTime());
-    }
-    
-    if (!ticks.includes(endTime.getTime())) {
-      ticks.push(endTime.getTime());
-    }
-    
-    // Include sober time tick if available
-    if (soberTime && soberTime.getTime() > startTime.getTime() && soberTime.getTime() < endTime.getTime()) {
-      const soberTimestamp = soberTime.getTime();
-      if (!ticks.includes(soberTimestamp)) {
-        ticks.push(soberTimestamp);
-        ticks.sort((a, b) => a - b);
-      }
-    }
-    
-    return ticks;
-  };
-  
-  // Format tooltip values
-  const formatTooltipValue = (value: number) => {
-    return `${(value * 10).toFixed(1)}‰`;
-  };
+  // If no data, show placeholder
+  if (chartData.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        Add drinks to see your BAC chart
+      </div>
+    );
+  }
 
   return (
-    <div className="h-64 w-full">
-      {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-          >
-            <defs>
-              <linearGradient id="bacColor" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.2}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.7} />
-            <XAxis 
-              dataKey="timestamp" 
-              type="number"
-              domain={[chartData[0].timestamp, chartData[chartData.length-1].timestamp]}
-              scale="time"
-              tickFormatter={formatXAxis}
-              ticks={getXTicks()}
-              tick={{ fontSize: 12, fill: "#C8C8C9" }}
-              stroke="#C8C8C9"
-              strokeWidth={1.5}
-              allowDataOverflow={false}
-              minTickGap={20}
-            />
-            <YAxis 
-              tickFormatter={value => `${(value * 10).toFixed(1)}`}
-              domain={[0, maxBac * 1.1]} 
-              tick={{ fontSize: 12, fill: "#C8C8C9" }}
-              unit="‰"
-              stroke="#C8C8C9"
-              strokeWidth={1.5}
-              allowDecimals={true}
-            />
-            <Tooltip 
-              formatter={formatTooltipValue}
-              labelFormatter={value => formatXAxis(value as number)}
-              contentStyle={{
-                backgroundColor: 'var(--card)',
-                borderColor: 'var(--border)',
-                borderRadius: '8px',
-                padding: '8px',
-                fontSize: '12px'
-              }}
-              itemStyle={{ color: 'var(--foreground)' }}
-              labelStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }}
-            />
-            <ReferenceLine 
-              y={LEGAL_LIMITS.regular} 
-              stroke="#f43f5e" 
-              strokeDasharray="3 3" 
-              label={{ 
-                value: "Regular Limit",
-                position: "insideBottomRight",
-                fill: "#f43f5e",
-                fontSize: 10
-              }}
-            />
-            <ReferenceLine 
-              y={LEGAL_LIMITS.professional} 
-              stroke="#f59e0b" 
-              strokeDasharray="3 3" 
-              label={{ 
-                value: "Professional Limit",
-                position: "insideBottomRight",
-                fill: "#f59e0b",
-                fontSize: 10
-              }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="bac" 
-              stroke="hsl(var(--primary))" 
-              fill="url(#bacColor)" 
-              strokeWidth={2}
-              isAnimationActive={false}
-              activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'var(--background)' }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="h-full flex items-center justify-center text-muted-foreground">
-          Add drinks to see your BAC chart
+    <div className="w-full h-full relative">
+      {/* Draw the grid */}
+      <div className="absolute inset-0 border-b border-l border-border">
+        {/* Horizontal grid lines and Y-axis labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map((level) => {
+          const percentY = 100 - (level / maxBac) * 100;
+          return (
+            <div 
+              key={`y-${level}`} 
+              className="absolute w-full border-t border-border border-opacity-50"
+              style={{ top: `${percentY}%` }}
+            >
+              <span className="absolute -left-8 -top-3 text-xs text-muted-foreground">
+                {(level * 10).toFixed(1)}‰
+              </span>
+            </div>
+          );
+        })}
+        
+        {/* Draw legal limit lines */}
+        <div 
+          className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
+          style={{ 
+            top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
+            zIndex: 5
+          }}
+        >
+          <span className="absolute right-0 -top-5 text-xs text-destructive">
+            Regular Limit ({(LEGAL_LIMITS.regular * 10).toFixed(1)}‰)
+          </span>
         </div>
-      )}
+        
+        <div 
+          className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
+          style={{ 
+            top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
+            zIndex: 5
+          }}
+        >
+          <span className="absolute right-0 -top-5 text-xs text-amber-500">
+            Professional Limit ({(LEGAL_LIMITS.professional * 10).toFixed(1)}‰)
+          </span>
+        </div>
+        
+        {/* X-axis time labels - show 5 evenly spaced points */}
+        {chartData.length > 0 && Array.from({ length: 5 }).map((_, i) => {
+          const index = Math.floor(i * (chartData.length - 1) / 4);
+          const dataPoint = chartData[index];
+          const percentX = (i * 100) / 4;
+          
+          return (
+            <div 
+              key={`x-${i}`} 
+              className="absolute h-full"
+              style={{ left: `${percentX}%` }}
+            >
+              <div className="absolute bottom-0 transform -translate-x-1/2 -translate-y-[-24px]">
+                <span className="text-xs text-muted-foreground">
+                  {formatTime(dataPoint.time)}
+                </span>
+              </div>
+              <div className="h-full w-px bg-border opacity-50"></div>
+            </div>
+          );
+        })}
+        
+        {/* Show sober time if available */}
+        {soberTime && (
+          <div 
+            className="absolute h-full"
+            style={{ 
+              left: `${((soberTime.getTime() - chartData[0].time.getTime()) / 
+                      (chartData[chartData.length - 1].time.getTime() - chartData[0].time.getTime())) * 100}%` 
+            }}
+          >
+            <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
+            <div className="absolute bottom-0 transform -translate-x-1/2 -translate-y-[-24px]">
+              <span className="text-xs text-green-500 font-medium">
+                Sober ({formatTime(soberTime)})
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Draw the BAC line and area */}
+      <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="bacGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
+          </linearGradient>
+        </defs>
+        
+        {/* Draw area under the line */}
+        <path
+          d={`
+            M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+            ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+            L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
+            L ${getXCoordinate(chartData[0].time)} ${getYCoordinate(0)}
+            Z
+          `}
+          fill="url(#bacGradient)"
+        />
+        
+        {/* Draw the line */}
+        <path
+          d={`
+            M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
+            ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+          `}
+          stroke="hsl(var(--primary))"
+          strokeWidth="2"
+          fill="none"
+        />
+        
+        {/* Draw data points */}
+        {chartData.map((point, index) => (
+          <circle
+            key={index}
+            cx={getXCoordinate(point.time)}
+            cy={getYCoordinate(point.bac)}
+            r="3"
+            fill="hsl(var(--primary))"
+            stroke="var(--background)"
+            strokeWidth="1"
+          />
+        ))}
+      </svg>
+      
+      {/* Tooltips for each data point */}
+      {chartData.map((point, index) => (
+        <div
+          key={`tooltip-${index}`}
+          className="absolute -translate-x-1/2 -translate-y-full group"
+          style={{ 
+            left: `${getXPercent(point.time)}%`, 
+            top: `${getYPercent(point.bac)}%` 
+          }}
+        >
+          <div className="w-2 h-2 opacity-0 group-hover:opacity-100"></div>
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100">
+            <div className="bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border">
+              <div className="font-medium">{formatTime(point.time)}</div>
+              <div>{(point.bac * 10).toFixed(1)}‰</div>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
+  
+  // Helper functions to calculate coordinates
+  function getXCoordinate(time: Date): number {
+    const startTime = chartData[0].time.getTime();
+    const endTime = chartData[chartData.length - 1].time.getTime();
+    const percent = (time.getTime() - startTime) / (endTime - startTime);
+    // Leave 5% padding on each side
+    return 5 + percent * 90;
+  }
+  
+  function getYCoordinate(bac: number): number {
+    // SVG coordinates go from top to bottom, so we need to invert
+    const percent = bac / maxBac;
+    // Leave 5% padding at the top
+    return 100 - (5 + percent * 90);
+  }
+  
+  function getXPercent(time: Date): number {
+    const startTime = chartData[0].time.getTime();
+    const endTime = chartData[chartData.length - 1].time.getTime();
+    return ((time.getTime() - startTime) / (endTime - startTime)) * 100;
+  }
+  
+  function getYPercent(bac: number): number {
+    return 100 - ((bac / maxBac) * 100);
+  }
 };
 
 export default BacChartGraph;
