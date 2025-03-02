@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { BacAxisLabels } from './BacAxisLabels';
@@ -105,14 +104,18 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // If we're past the half-hour mark, move to the next hour
   if (now.getMinutes() >= 30) {
     currentHour.setHours(currentHour.getHours() + 1);
+  } else {
+    // Otherwise start from the current hour
+    currentHour.setHours(currentHour.getHours());
   }
   
-  // Add hour marks at regular intervals
-  while (hourMarks.length < 5 && currentHour <= endTime) {
-    if (currentHour > now) { // Only add future hours
+  // Add the next several hours as marks
+  while (currentHour <= endTime && hourMarks.length < 6) {
+    // Only add if not too close to the current time mark
+    if (currentHour.getTime() - now.getTime() > 20 * 60 * 1000) { // At least 20 minutes apart
       hourMarks.push(new Date(currentHour));
     }
-    currentHour.setHours(currentHour.getHours() + hourInterval);
+    currentHour = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
   }
   
   // Create BAC level marks with appropriate intervals, always including zero
@@ -179,7 +182,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}%` 
+              left: `${coordinates.getXCoordinate(soberTime)}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
