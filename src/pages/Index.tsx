@@ -4,7 +4,6 @@ import BacCalculator from '@/components/BacCalculator';
 import { Button } from '@/components/ui/button';
 import { Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Index = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -50,13 +49,6 @@ const Index = () => {
       </div>
       
       <div className="container py-8 px-4 sm:py-12">
-        {/* English disclaimer */}
-        <Alert className="mb-6 border-amber-500">
-          <AlertDescription className="text-sm font-medium">
-            This application is created for technology testing purposes only and should not be used to determine actual blood alcohol content. Users of this application do so at their own risk.
-          </AlertDescription>
-        </Alert>
-        
         <BacCalculator />
         
         <footer className="mt-12 text-center text-sm text-muted-foreground">
