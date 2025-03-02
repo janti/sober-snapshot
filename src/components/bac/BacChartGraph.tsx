@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -10,19 +10,84 @@ interface BacChartGraphProps {
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Transform the data for the chart with proper time formatting
-  const chartData = data.map(point => ({
-    timestamp: point.time.getTime(),
-    time: point.time.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false
-    }),
-    bac: point.bac,
-    bacFormatted: (point.bac * 10).toFixed(1)
-  }));
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [minTimestamp, setMinTimestamp] = useState<number>(0);
+  const [maxTimestamp, setMaxTimestamp] = useState<number>(0);
+  const [timeRange, setTimeRange] = useState<number>(0);
+  const [minTickGap, setMinTickGap] = useState<number>(30);
 
-  // Calculate max BAC for y-axis scale (with minimum of 0.1)
-  const maxBac = Math.max(...data.map(d => d.bac), 0.1);
+  // Process data whenever it changes
+  useEffect(() => {
+    if (data.length === 0) {
+      setChartData([]);
+      setMinTimestamp(0);
+      setMaxTimestamp(0);
+      return;
+    }
+
+    // Transform data for recharts
+    const transformedData = data.map(point => ({
+      timestamp: point.time.getTime(),
+      time: point.time.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false
+      }),
+      bac: point.bac,
+      bacFormatted: (point.bac * 10).toFixed(1)
+    }));
+
+    // Calculate time boundaries
+    let min = transformedData.length > 0 ? transformedData[0].timestamp : 0;
+    let max = transformedData.length > 0 ? transformedData[transformedData.length - 1].timestamp : 0;
+    
+    // If we have a sober time, make sure the chart extends to include it
+    if (soberTime && soberTime.getTime() > max) {
+      max = soberTime.getTime();
+      
+      // Add the sober time point if we have data
+      if (transformedData.length > 0) {
+        transformedData.push({
+          timestamp: soberTime.getTime(),
+          time: soberTime.toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false
+          }),
+          bac: 0.001, // Almost zero BAC at sober time
+          bacFormatted: "0.0"
+        });
+      }
+    }
+
+    // Ensure we have at least a reasonable time range if the data points are too close
+    if (max - min < 1800000) { // Less than 30 min
+      max = min + 1800000; // Show at least 30 min
+    }
+
+    // Calculate tick frequency based on time range
+    const range = max - min;
+    const tickGap = range < 1800000 ? 3 : // less than 30 min
+                   range < 3600000 ? 5 : // less than 1 hour
+                   range < 7200000 ? 10 : // less than 2 hours
+                   range < 14400000 ? 15 : // less than 4 hours
+                   30; // default for longer periods
+
+    setChartData(transformedData);
+    setMinTimestamp(min);
+    setMaxTimestamp(max);
+    setTimeRange(range);
+    setMinTickGap(tickGap);
+
+    console.log("Chart data updated:", {
+      dataLength: transformedData.length,
+      min,
+      max,
+      range,
+      tickGap,
+      hasSoberTime: !!soberTime
+    });
+  }, [data, soberTime]);
 
   // Functions for formatting chart values
   const formatXAxis = (timestamp: number) => {
@@ -37,40 +102,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
-  // Calculate the min and max timestamps, including sober time for X-axis domain
-  const minTimestamp = chartData.length > 0 ? chartData[0].timestamp : 0;
-  
-  // Include sober time in the X-axis domain if available
-  let maxTimestamp = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
-  if (soberTime && soberTime.getTime() > maxTimestamp) {
-    // Set the max timestamp to sober time to show full timeline until sober
-    maxTimestamp = soberTime.getTime();
-    
-    // Optionally add the sober time point to the chart data if it's not already in the data
-    // and only if we have at least one data point (to avoid errors)
-    if (chartData.length > 0) {
-      chartData.push({
-        timestamp: soberTime.getTime(),
-        time: soberTime.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false
-        }),
-        bac: 0.001, // Almost zero BAC at sober time
-        bacFormatted: "0.0"
-      });
-    }
-  }
-  
-  // Calculate time range to determine tick frequency
-  const timeRange = maxTimestamp - minTimestamp;
-  
-  // Dynamic tick gap based on time range
-  const minTickGap = timeRange < 1800000 ? 3 : // less than 30 min
-                     timeRange < 3600000 ? 5 : // less than 1 hour
-                     timeRange < 7200000 ? 10 : // less than 2 hours
-                     timeRange < 14400000 ? 15 : // less than 4 hours
-                     30; // default for longer periods
+  // Calculate max BAC for y-axis scale (with minimum of 0.1)
+  const maxBac = Math.max(...data.map(d => d.bac), 0.1);
 
   return (
     <div className="h-64 w-full">
