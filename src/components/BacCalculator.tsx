@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,13 +59,22 @@ const BacCalculator: React.FC = () => {
     const bacPoints = calculateBacOverTime(userData, drinks, startTime, endTime, 10);
     setBacData(bacPoints);
     
-    // Get current BAC
+    // Get current BAC - find the closest point to now
     const now = new Date();
-    const currentBacPoint = bacPoints.find(point => 
-      Math.abs(point.time.getTime() - now.getTime()) < 10 * 60 * 1000
-    ) || bacPoints[bacPoints.length - 1];
     
-    setCurrentBac(currentBacPoint?.bac || 0);
+    // Find the point closest to current time
+    let closestPoint = bacPoints[0];
+    let minTimeDiff = Math.abs(closestPoint.time.getTime() - now.getTime());
+    
+    for (const point of bacPoints) {
+      const timeDiff = Math.abs(point.time.getTime() - now.getTime());
+      if (timeDiff < minTimeDiff) {
+        minTimeDiff = timeDiff;
+        closestPoint = point;
+      }
+    }
+    
+    setCurrentBac(closestPoint?.bac || 0);
     
     // Calculate time until sober
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
