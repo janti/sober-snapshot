@@ -21,11 +21,18 @@ const UserForm: React.FC<UserFormProps> = ({ userData, onChange, className }) =>
   };
 
   const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const weight = parseInt(e.target.value);
+    const weightValue = e.target.value;
+    const weight = parseInt(weightValue);
     if (!isNaN(weight) && weight > 0) {
       onChange({
         ...userData,
         weight
+      });
+    } else if (weightValue === '') {
+      // Allow empty input for better UX
+      onChange({
+        ...userData,
+        weight: 0
       });
     }
   };
