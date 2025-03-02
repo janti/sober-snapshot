@@ -1,11 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   UserData, 
   DrinkData, 
-  LEGAL_LIMITS,
   calculateBacOverTime,
   calculateTimeTillSober,
   getCurrentBac
@@ -13,8 +10,8 @@ import {
 import UserForm from './UserForm';
 import DrinkSelector from './DrinkSelector';
 import BacChart from './BacChart';
-import { RefreshCw, AlertTriangle, BadgeCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { CurrentBacDisplay, BacHeader, ResetButton } from './bac';
 
 const BacCalculator: React.FC = () => {
   const { toast } = useToast();
@@ -125,16 +122,6 @@ const BacCalculator: React.FC = () => {
     });
   };
 
-  // Get BAC status message and color
-  const getBacStatus = () => {
-    if (currentBac === 0) return { message: "Sober", icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
-    if (currentBac <= LEGAL_LIMITS.professional) return { message: "Below Professional Limit", icon: <BadgeCheck className="h-5 w-5" />, color: "text-green-500" };
-    if (currentBac <= LEGAL_LIMITS.regular) return { message: "Below Regular Limit", icon: <AlertTriangle className="h-5 w-5" />, color: "text-amber-500" };
-    return { message: "Above Legal Limit", icon: <AlertTriangle className="h-5 w-5" />, color: "text-red-500" };
-  };
-
-  const status = getBacStatus();
-
   // Update BAC calculation when the component is first loaded or on manual refresh
   const refreshCalculations = () => {
     console.log("Manual refresh triggered");
@@ -145,37 +132,16 @@ const BacCalculator: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Main header */}
-      <div className="text-center mb-8 animate-slide-down">
-        <h1 className="text-4xl font-bold mb-2">Finnish BAC Calculator</h1>
-        <p className="text-lg text-muted-foreground">
-          Track your blood alcohol concentration based on Finnish standards
-        </p>
-      </div>
+      <BacHeader 
+        title="Finnish BAC Calculator" 
+        description="Track your blood alcohol concentration based on Finnish standards" 
+      />
       
       {/* Current BAC display */}
-      <Card className="mb-8 mx-auto max-w-md animate-fade-in">
-        <CardContent className="py-6 flex flex-col items-center">
-          <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">
-            Current BAC
-          </div>
-          <div className="text-6xl font-bold mb-2 mt-2">
-            {(currentBac * 10).toFixed(1)}‰
-          </div>
-          <div className={`flex items-center ${status.color} font-medium gap-1.5`}>
-            {status.icon}
-            <span>{status.message}</span>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={refreshCalculations} 
-            className="mt-3 text-xs flex items-center gap-1"
-          >
-            <RefreshCw className="h-3 w-3" />
-            <span>Refresh</span>
-          </Button>
-        </CardContent>
-      </Card>
+      <CurrentBacDisplay 
+        currentBac={currentBac} 
+        onRefresh={refreshCalculations} 
+      />
       
       {/* Main content grid */}
       <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -203,17 +169,7 @@ const BacCalculator: React.FC = () => {
       </div>
       
       {/* Reset button */}
-      <div className="flex justify-center mb-12">
-        <Button 
-          onClick={handleReset} 
-          variant="outline" 
-          size="lg"
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>Reset Calculator</span>
-        </Button>
-      </div>
+      <ResetButton onReset={handleReset} />
     </div>
   );
 };
