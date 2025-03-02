@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 
@@ -19,24 +18,33 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       return;
     }
     
-    // Ensure the data starts from now if we don't have a point at current time
-    const now = new Date();
-    const sortedData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
-    
-    // If the first point is in the future, add a point for now
-    if (sortedData.length > 0 && sortedData[0].time.getTime() > now.getTime()) {
-      // Find the BAC at current time by interpolating
-      const firstPoint = sortedData[0];
-      // Add a data point for now with same BAC as the first point
-      // This creates a flat line from now until the first drink
-      sortedData.unshift({ time: new Date(), bac: 0 });
+    // Filter out zero BAC points, except keep the last one if all are zero
+    const filteredData = data.filter(point => point.bac > 0);
+    if (filteredData.length === 0 && data.length > 0) {
+      filteredData.push(data[data.length - 1]);
     }
     
-    // If the last time point is in the past, add a point for now
-    if (sortedData.length > 0 && sortedData[sortedData.length - 1].time.getTime() < now.getTime()) {
-      // Add current time with the last BAC value
-      const lastBac = sortedData[sortedData.length - 1].bac;
-      sortedData.push({ time: new Date(), bac: lastBac });
+    // Ensure the data starts from now
+    const now = new Date();
+    const sortedData = [...filteredData].sort((a, b) => a.time.getTime() - b.time.getTime());
+    
+    // Always start from current time with current BAC
+    if (sortedData.length > 0) {
+      // Get current BAC by using the first data point or interpolating
+      const currentBac = getCurrentBac();
+      
+      // Add or update the current time point
+      const currentTimePointIndex = sortedData.findIndex(
+        p => Math.abs(p.time.getTime() - now.getTime()) < 60000
+      );
+      
+      if (currentTimePointIndex >= 0) {
+        // Update existing point
+        sortedData[currentTimePointIndex].time = new Date();
+      } else {
+        // Add new point at current time
+        sortedData.unshift({ time: new Date(), bac: currentBac });
+      }
     }
     
     setChartData(sortedData);
@@ -125,15 +133,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const chartHeight = 300; // pixels
   const chartWidth = "100%"; // Use full width of container
 
-  // Find the current time point or interpolate
-  const getCurrentTimePoint = () => {
-    const current = new Date();
-    // Find nearest point or interpolate
-    return chartData.find(p => 
-      Math.abs(p.time.getTime() - current.getTime()) < 60000
-    ) || { time: current, bac: getCurrentBac() };
-  };
-
   // Get the current BAC by finding the closest data point to now
   const getCurrentBac = () => {
     const now = new Date().getTime();
@@ -142,7 +141,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     let beforePoint = null;
     let afterPoint = null;
     
-    for (const point of chartData) {
+    for (const point of data) {
       const pointTime = point.time.getTime();
       
       if (pointTime <= now) {
@@ -181,10 +180,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   };
 
   // Create a straight-line version of the data
-  const straightLineData = [
-    { time: startTime, bac: getCurrentBac() },
-    ...chartData.filter(p => p.time.getTime() > startTime.getTime())
-  ];
+  const straightLineData = chartData.filter(point => point.time.getTime() >= startTime.getTime());
 
   return (
     <div className="w-full h-[350px] relative mb-4 overflow-visible">
@@ -290,51 +286,55 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             </linearGradient>
           </defs>
           
-          {/* Draw area under the line */}
-          <path
-            d={`
-              M ${getXCoordinate(straightLineData[0].time)} ${getYCoordinate(straightLineData[0].bac)}
-              ${straightLineData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-              L ${getXCoordinate(straightLineData[straightLineData.length - 1].time)} ${chartHeight}
-              L ${getXCoordinate(straightLineData[0].time)} ${chartHeight}
-              Z
-            `}
-            fill="url(#bacGradient)"
-          />
-          
-          {/* Draw the line */}
-          <path
-            d={`
-              M ${getXCoordinate(straightLineData[0].time)} ${getYCoordinate(straightLineData[0].bac)}
-              ${straightLineData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-            `}
-            stroke="hsl(var(--primary))"
-            strokeWidth="2.5"
-            fill="none"
-          />
-          
-          {/* Draw data points */}
-          {straightLineData.map((point, index) => (
-            <circle
-              key={index}
-              cx={getXCoordinate(point.time)}
-              cy={getYCoordinate(point.bac)}
-              r="3.5"
-              fill="hsl(var(--primary))"
-              stroke="var(--background)"
-              strokeWidth="1.5"
-            />
-          ))}
-          
-          {/* Highlight current time point */}
-          <circle
-            cx={getXCoordinate(startTime)}
-            cy={getYCoordinate(straightLineData[0].bac)}
-            r="5"
-            fill="hsl(var(--primary))"
-            stroke="white"
-            strokeWidth="2"
-          />
+          {straightLineData.length > 0 && (
+            <>
+              {/* Draw area under the line */}
+              <path
+                d={`
+                  M ${getXCoordinate(straightLineData[0].time)} ${getYCoordinate(straightLineData[0].bac)}
+                  ${straightLineData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+                  L ${getXCoordinate(straightLineData[straightLineData.length - 1].time)} ${chartHeight}
+                  L ${getXCoordinate(straightLineData[0].time)} ${chartHeight}
+                  Z
+                `}
+                fill="url(#bacGradient)"
+              />
+              
+              {/* Draw the line */}
+              <path
+                d={`
+                  M ${getXCoordinate(straightLineData[0].time)} ${getYCoordinate(straightLineData[0].bac)}
+                  ${straightLineData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
+                `}
+                stroke="hsl(var(--primary))"
+                strokeWidth="2.5"
+                fill="none"
+              />
+              
+              {/* Draw data points */}
+              {straightLineData.map((point, index) => (
+                <circle
+                  key={index}
+                  cx={getXCoordinate(point.time)}
+                  cy={getYCoordinate(point.bac)}
+                  r="3.5"
+                  fill="hsl(var(--primary))"
+                  stroke="var(--background)"
+                  strokeWidth="1.5"
+                />
+              ))}
+              
+              {/* Highlight current time point */}
+              <circle
+                cx={getXCoordinate(straightLineData[0].time)}
+                cy={getYCoordinate(straightLineData[0].bac)}
+                r="5"
+                fill="hsl(var(--primary))"
+                stroke="white"
+                strokeWidth="2"
+              />
+            </>
+          )}
         </svg>
       </div>
       
