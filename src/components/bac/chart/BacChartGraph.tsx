@@ -25,40 +25,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
       return;
     }
 
-    // Sort data by time
-    const sortedData = [...data].sort((a, b) => a.time.getTime() - b.time.getTime());
-
-    // Use the most recent data point that is not in the future as the starting point
-    const now = new Date();
-    const currentDataPoints = sortedData.filter(point => point.time <= now);
-
-    // Find the current BAC value
-    let currentBac = 0;
-    if (currentDataPoints.length > 0) {
-      // Get the most recent point's BAC
-      currentBac = currentDataPoints[currentDataPoints.length - 1].bac;
-    }
-
-    // For a straight line, we need the current point and sober time (BAC = 0)
-    if (soberTime && soberTime > now) {
-      setChartData([{
-        time: now,
-        bac: currentBac
-      }, {
-        time: soberTime,
-        bac: 0
-      }]);
-    } else {
-      // If no sober time or already sober, use a flat line for 3 hours
-      const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-      setChartData([{
-        time: now,
-        bac: currentBac
-      }, {
-        time: threeHoursLater,
-        bac: currentBac
-      }]);
-    }
+    // Use the provided data as our chart data
+    // This ensures we're displaying the full BAC curve over time
+    setChartData([...data]);
+    
   }, [data, soberTime]);
 
   // Format time for display
@@ -154,30 +124,53 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
       return chartHeight - bac / maxBac * chartHeight;
     }
   };
-  return <div className="w-full h-[230px] relative mb-2 mx-[10px]">
+
+  return (
+    <div className="w-full h-[230px] relative mb-2 mx-[10px]">
       {/* Chart container */}
-      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-2" style={{
-      height: chartHeight
-    }}>
+      <div 
+        className="absolute inset-0 border-b border-l border-border pt-2 pb-6 pl-2" 
+        style={{ height: chartHeight }}
+      >
+        <BacAxisLabels 
+          hourMarks={hourMarks} 
+          bacMarks={bacMarks} 
+          formatTime={formatTime} 
+          chartHeight={chartHeight} 
+          leftPadding={leftPadding} 
+          totalHours={totalHours} 
+          startTime={startTime} 
+          coordinates={coordinates} 
+        />
         
-        <BacAxisLabels hourMarks={hourMarks} bacMarks={bacMarks} formatTime={formatTime} chartHeight={chartHeight} leftPadding={leftPadding} totalHours={totalHours} startTime={startTime} coordinates={coordinates} />
-        
-        <BacLegalLimitLines maxBac={maxBac} coordinates={coordinates} />
+        <BacLegalLimitLines 
+          maxBac={maxBac} 
+          coordinates={coordinates} 
+        />
         
         {/* Show sober time if available */}
-        {soberTime && soberTime > startTime && <div className="absolute h-full" style={{
-        left: `${coordinates.getXCoordinate(soberTime)}%`
-      }}>
+        {soberTime && soberTime > startTime && (
+          <div 
+            className="absolute h-full" 
+            style={{ left: `${coordinates.getXCoordinate(soberTime)}%` }}
+          >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
             <div className="absolute bottom-[-24px] transform -translate-x-1/2">
               <span className="text-xs text-green-500 font-medium whitespace-nowrap">
                 Sober
               </span>
             </div>
-          </div>}
+          </div>
+        )}
 
-        <BacLineGraph chartData={chartData} chartHeight={chartHeight} coordinates={coordinates} />
+        <BacLineGraph 
+          chartData={chartData} 
+          chartHeight={chartHeight} 
+          coordinates={coordinates} 
+        />
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default BacChartGraph;

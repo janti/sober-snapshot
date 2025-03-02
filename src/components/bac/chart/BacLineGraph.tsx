@@ -87,7 +87,7 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           fill="none"
         />
         
-        {/* Add tooltips for data points */}
+        {/* Add dots and tooltips for data points */}
         {chartData.map((point, index) => (
           <foreignObject
             key={index}
