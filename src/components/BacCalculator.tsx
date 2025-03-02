@@ -133,8 +133,8 @@ const BacCalculator: React.FC = () => {
     <div className="w-full max-w-7xl mx-auto">
       {/* Main header */}
       <BacHeader 
-        title="Finnish BAC Calculator" 
-        description="Track your blood alcohol concentration based on Finnish standards" 
+        title="Drink Tracker" 
+        description="Track your Blood Alcohol Content (BAC) and see how long until you're safe to drive" 
       />
       
       {/* Current BAC display */}
