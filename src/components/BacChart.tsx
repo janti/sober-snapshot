@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import { Badge } from "@/components/ui/badge";
-import { CarFront, CarTaxiFront } from 'lucide-react';
+import { CarFront, CarTaxiFront, IceCreamCone } from 'lucide-react';
 
 interface BacChartProps {
   data: { time: Date; bac: number }[];
@@ -69,13 +70,16 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
   };
 
   return (
-    <Card className={`animate-fade-in ${className}`}>
+    <Card className={`animate-fade-in shadow-lg border-2 hover:border-primary/30 transition-all duration-300 ${className}`}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-xl font-medium">
-              BAC Over Time
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <IceCreamCone className="h-5 w-5 text-accent" />
+              <CardTitle className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                BAC Over Time
+              </CardTitle>
+            </div>
             <CardDescription>
               Blood Alcohol Concentration visualization
             </CardDescription>
@@ -83,14 +87,14 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
           <div className="flex flex-col gap-2 items-end">
             <Badge 
               variant={isAboveRegularLimit ? "destructive" : "outline"}
-              className="flex gap-1 items-center"
+              className="flex gap-1 items-center shadow-sm"
             >
               <CarFront className="h-3 w-3" />
               <span>{(LEGAL_LIMITS.regular * 10).toFixed(1)}‰ limit</span>
             </Badge>
             <Badge 
               variant={isAboveProfessionalLimit ? "destructive" : "outline"}
-              className="flex gap-1 items-center"
+              className="flex gap-1 items-center shadow-sm"
             >
               <CarTaxiFront className="h-3 w-3" />
               <span>{(LEGAL_LIMITS.professional * 10).toFixed(1)}‰ limit</span>
@@ -108,8 +112,8 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
               >
                 <defs>
                   <linearGradient id="bacColor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.2}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.2}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.7} />
@@ -175,12 +179,12 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
                 <Area 
                   type="monotone" 
                   dataKey="bac" 
-                  stroke="var(--primary)" 
+                  stroke="hsl(var(--primary))" 
                   fill="url(#bacColor)" 
                   strokeWidth={2}
                   isAnimationActive={true}
                   animationDuration={500}
-                  activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'var(--background)' }}
+                  activeDot={{ r: 6, fill: 'hsl(var(--primary))', stroke: 'var(--background)' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -194,9 +198,9 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
         </div>
 
         {soberTime && data.length > 0 && (
-          <div className="p-4 bg-secondary rounded-lg">
+          <div className="p-4 bg-secondary rounded-lg shadow-inner">
             <div className="text-sm font-medium">Time until sober (BAC &lt; 0.01%)</div>
-            <div className="text-2xl font-bold mt-1">{formatSoberTime(soberTime)}</div>
+            <div className="text-2xl font-bold mt-1 text-primary">{formatSoberTime(soberTime)}</div>
             <div className="text-xs text-muted-foreground mt-1">
               Estimated sober at {soberTime.toLocaleTimeString([], { 
                 hour: '2-digit', 
