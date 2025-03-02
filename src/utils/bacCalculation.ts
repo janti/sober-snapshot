@@ -19,8 +19,8 @@ const WIDMARK_CONSTANT = {
   female: 0.55,
 };
 
-// Rate at which alcohol is metabolized (units per hour)
-const METABOLISM_RATE = 0.1; // Finnish rate: approximately 0.1-0.2 g/kg/h
+// Rate at which alcohol is metabolized (percent per hour)
+const METABOLISM_RATE = 0.015; // Standard elimination rate of about 0.015% per hour
 
 // Convert ml of pure alcohol to grams (density of alcohol)
 const ALCOHOL_DENSITY = 0.789; // g/ml
@@ -30,16 +30,21 @@ export function calculateBacForDrink(
   user: UserData,
   drink: DrinkData
 ): number {
+  if (user.weight <= 0) return 0;
+  
   // Calculate pure alcohol in grams
   const pureAlcoholMl = (drink.volume * drink.alcoholPercentage) / 100;
   const pureAlcoholGrams = pureAlcoholMl * ALCOHOL_DENSITY;
   
-  // Widmark formula: BAC = (A / (r * W)) * 100
+  // Widmark formula: BAC = (A / (r * W)) - (0.015 * t)
   // A = pure alcohol in grams
   // r = Widmark constant (0.68 for men, 0.55 for women)
   // W = body weight in kg
   const widmarkConstant = WIDMARK_CONSTANT[user.gender];
-  const bac = (pureAlcoholGrams / (widmarkConstant * user.weight)) * 100;
+  
+  // BAC as a decimal percentage (like 0.08% for 0.8‰)
+  // Divide by 1000 to convert from g/kg to percentage
+  const bac = pureAlcoholGrams / (widmarkConstant * user.weight * 10);
   
   return bac;
 }
@@ -52,7 +57,7 @@ export function calculateBacOverTime(
   endTime: Date = new Date(),
   intervalMinutes: number = 10
 ): { time: Date; bac: number }[] {
-  if (drinks.length === 0) return [];
+  if (drinks.length === 0 || user.weight <= 0) return [];
 
   const sortedDrinks = [...drinks].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
@@ -90,13 +95,13 @@ export function calculateBacOverTime(
   });
 }
 
-// Calculate time until sober (BAC < 0.01)
+// Calculate time until sober (BAC < 0.01%)
 export function calculateTimeTillSober(
   user: UserData,
   drinks: DrinkData[],
   currentTime: Date = new Date()
 ): Date | null {
-  if (drinks.length === 0) return null;
+  if (drinks.length === 0 || user.weight <= 0) return null;
 
   const bacPoints = calculateBacOverTime(
     user,
@@ -106,7 +111,7 @@ export function calculateTimeTillSober(
     30 // 30-minute intervals
   );
   
-  const soberPoint = bacPoints.find(point => point.bac < 0.01);
+  const soberPoint = bacPoints.find(point => point.bac < 0.001);
   return soberPoint ? soberPoint.time : null;
 }
 
