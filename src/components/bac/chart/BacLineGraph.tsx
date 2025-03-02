@@ -25,6 +25,36 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
     });
   };
 
+  // Create path coordinates
+  const createPath = () => {
+    if (chartData.length < 2) return '';
+    
+    const x1 = coordinates.getXCoordinate(chartData[0].time);
+    const y1 = coordinates.getYCoordinate(chartData[0].bac);
+    const x2 = coordinates.getXCoordinate(chartData[1].time);
+    const y2 = coordinates.getYCoordinate(chartData[1].bac);
+    
+    return `M ${x1}% ${y1} L ${x2}% ${y2}`;
+  };
+
+  // Create area under the path
+  const createAreaPath = () => {
+    if (chartData.length < 2) return '';
+    
+    const x1 = coordinates.getXCoordinate(chartData[0].time);
+    const y1 = coordinates.getYCoordinate(chartData[0].bac);
+    const x2 = coordinates.getXCoordinate(chartData[1].time);
+    const y2 = coordinates.getYCoordinate(chartData[1].bac);
+    
+    return `
+      M ${x1}% ${y1}
+      L ${x2}% ${y2}
+      L ${x2}% ${chartHeight}
+      L ${x1}% ${chartHeight}
+      Z
+    `;
+  };
+
   return (
     <TooltipProvider>
       <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -39,22 +69,13 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           <>
             {/* Fill area under the line */}
             <path
-              d={`
-                M ${coordinates.getXCoordinate(chartData[0].time)} ${coordinates.getYCoordinate(chartData[0].bac)}
-                L ${coordinates.getXCoordinate(chartData[1].time)} ${coordinates.getYCoordinate(chartData[1].bac)}
-                L ${coordinates.getXCoordinate(chartData[1].time)} ${chartHeight}
-                L ${coordinates.getXCoordinate(chartData[0].time)} ${chartHeight}
-                Z
-              `}
+              d={createAreaPath()}
               fill="url(#bacGradient)"
             />
             
             {/* Draw the line itself */}
             <path
-              d={`
-                M ${coordinates.getXCoordinate(chartData[0].time)} ${coordinates.getYCoordinate(chartData[0].bac)}
-                L ${coordinates.getXCoordinate(chartData[1].time)} ${coordinates.getYCoordinate(chartData[1].bac)}
-              `}
+              d={createPath()}
               stroke="hsl(var(--primary))"
               strokeWidth="2.5"
               fill="none"
@@ -64,8 +85,8 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
           // Fallback for single data point
           <path
             d={`
-              M ${coordinates.getXCoordinate(chartData[0].time)} ${coordinates.getYCoordinate(chartData[0].bac)}
-              L ${coordinates.getXCoordinate(new Date(chartData[0].time.getTime() + 3 * 60 * 60 * 1000))} ${coordinates.getYCoordinate(chartData[0].bac)}
+              M ${coordinates.getXCoordinate(chartData[0].time)}% ${coordinates.getYCoordinate(chartData[0].bac)}
+              L ${coordinates.getXCoordinate(new Date(chartData[0].time.getTime() + 3 * 60 * 60 * 1000))}% ${coordinates.getYCoordinate(chartData[0].bac)}
             `}
             stroke="hsl(var(--primary))"
             strokeWidth="2.5"
@@ -77,10 +98,11 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         {chartData.map((point, index) => (
           <foreignObject
             key={index}
-            x={coordinates.getXCoordinate(point.time) - 10}
+            x={`${coordinates.getXCoordinate(point.time)}%`}
             y={coordinates.getYCoordinate(point.bac) - 10}
             width={20}
             height={20}
+            style={{ transform: 'translateX(-10px)' }}
           >
             <Tooltip>
               <TooltipTrigger asChild>
@@ -102,7 +124,7 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         
         {/* Current BAC point indicator */}
         <circle
-          cx={coordinates.getXCoordinate(chartData[0].time)}
+          cx={`${coordinates.getXCoordinate(chartData[0].time)}%`}
           cy={coordinates.getYCoordinate(chartData[0].bac)}
           r="5"
           fill="hsl(var(--primary))"

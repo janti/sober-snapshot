@@ -1,15 +1,20 @@
 
 import React from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
+import { ChartCoordinates } from './types';
 
 interface BacLegalLimitLinesProps {
   maxBac: number;
+  coordinates: ChartCoordinates;
 }
 
-export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ maxBac }) => {
-  // Calculate position for each limit line based on percentage of max BAC
-  const regularLimitPosition = 100 - (LEGAL_LIMITS.regular / maxBac) * 100;
-  const professionalLimitPosition = 100 - (LEGAL_LIMITS.professional / maxBac) * 100;
+export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ 
+  maxBac, 
+  coordinates 
+}) => {
+  // Get y-coordinate for each limit line
+  const regularLimitY = coordinates.getYCoordinate(LEGAL_LIMITS.regular);
+  const professionalLimitY = coordinates.getYCoordinate(LEGAL_LIMITS.professional);
   
   return (
     <>
@@ -18,7 +23,7 @@ export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ maxBac }
         <div 
           className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
           style={{ 
-            top: `${regularLimitPosition}%`,
+            top: `${regularLimitY}px`,
             zIndex: 5
           }}
         >
@@ -32,7 +37,7 @@ export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ maxBac }
         <div 
           className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
           style={{ 
-            top: `${professionalLimitPosition}%`,
+            top: `${professionalLimitY}px`,
             zIndex: 5
           }}
         >

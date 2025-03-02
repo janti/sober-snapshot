@@ -86,37 +86,40 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate total duration in hours
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
   
-  // Determine hour interval for x-axis labels
-  let hourInterval = 1;
+  // Generate time markers for x-axis
+  const hourMarks: Date[] = [];
+  
+  // Start with current time (now)
+  hourMarks.push(new Date(now));
+  
+  // Add hour markers at regular intervals
+  let currentHour = new Date(now);
+  // Round to the next hour
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  
+  // Determine interval based on total hours
+  let hourInterval = 1; // Default to 1 hour intervals
   if (totalHours > 12) {
     hourInterval = 3;
   } else if (totalHours > 6) {
     hourInterval = 2;
   }
 
-  // Generate x-axis time markers
-  const hourMarks: Date[] = [];
-  
-  // Start with current time
-  hourMarks.push(new Date(now));
-  
-  // Add next hour (rounded)
-  const nextHour = new Date(now);
-  nextHour.setMinutes(0, 0, 0);
-  nextHour.setHours(nextHour.getHours() + 1);
-  
-  // If next hour is at least 20 minutes away, add it
-  if (nextHour.getTime() - now.getTime() > 20 * 60 * 1000) {
+  // Add the next rounded hour if it's at least 15 minutes away
+  if (nextHour.getTime() - now.getTime() > 15 * 60 * 1000) {
     hourMarks.push(new Date(nextHour));
+    currentHour = new Date(nextHour);
   }
   
   // Add remaining hours
-  let currentHour = new Date(nextHour);
   while (hourMarks.length < 6 && currentHour < endTime) {
-    currentHour = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
-    if (currentHour <= endTime) {
-      hourMarks.push(new Date(currentHour));
+    const nextTime = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
+    if (nextTime <= endTime) {
+      hourMarks.push(nextTime);
     }
+    currentHour = nextTime;
   }
   
   // Generate y-axis BAC value markers
@@ -145,10 +148,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
       // Calculate position as percentage of total time range
       const timePosition = time.getTime() - startTime.getTime();
       const totalTimeRange = endTime.getTime() - startTime.getTime();
-      const percentage = (timePosition / totalTimeRange) * (100 - leftPadding);
+      const percentage = timePosition / totalTimeRange * 100;
       
       // Apply left padding
-      return leftPadding + percentage;
+      return leftPadding / 100 * (100 - leftPadding) + percentage / 100 * (100 - leftPadding);
     },
     
     getYCoordinate(bac: number): number {
@@ -173,7 +176,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           coordinates={coordinates}
         />
         
-        <BacLegalLimitLines maxBac={maxBac} />
+        <BacLegalLimitLines 
+          maxBac={maxBac} 
+          coordinates={coordinates}
+        />
         
         {/* Show sober time if available */}
         {soberTime && soberTime > startTime && (

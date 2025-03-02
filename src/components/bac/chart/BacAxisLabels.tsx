@@ -45,6 +45,9 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
         {hourMarks.map((timePoint, index) => {
           const xPosition = coordinates.getXCoordinate(timePoint);
           
+          // Only render if we have a valid time
+          if (isNaN(xPosition)) return null;
+          
           return (
             <div 
               key={`hour-${index}`} 
