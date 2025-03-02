@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -36,27 +36,26 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
-  // Explicitly set X-axis domain to ensure it shows the full time range
-  const xDomain = chartData.length > 0 ? 
-    [chartData[0].timestamp, chartData[chartData.length - 1].timestamp] : 
-    ['dataMin', 'dataMax'];
-    
+  // Calculate the min and max timestamps to force axis updates
+  const minTimestamp = chartData.length > 0 ? chartData[0].timestamp : 0;
+  const maxTimestamp = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+  
+  // Generate a unique key based on the timeline extent to force complete re-renders
+  const chartKey = `chart-${minTimestamp}-${maxTimestamp}-${data.length}`;
+  
   // Calculate time range to determine tick frequency
-  const timeRange = chartData.length > 1 ? 
-    chartData[chartData.length - 1].timestamp - chartData[0].timestamp : 
-    0;
-    
-  // For short time spans, use more frequent ticks
-  const minTickGap = timeRange < 3600000 ? 5 : 15; // 1 hour threshold
-
-  // Use a unique key for the ResponsiveContainer based on data length and timestamps
-  // This forces React to completely remount the chart when data changes significantly
-  const containerKey = `chart-${data.length}-${data.length > 0 ? data[0].time.getTime() : 0}-${data.length > 0 ? data[data.length-1].time.getTime() : 0}`;
+  const timeRange = maxTimestamp - minTimestamp;
+  
+  // Dynamic tick gap based on time range
+  const minTickGap = timeRange < 1800000 ? 3 : // less than 30 min
+                      timeRange < 3600000 ? 5 : // less than 1 hour
+                      timeRange < 7200000 ? 10 : // less than 2 hours
+                      15; // default for longer periods
 
   return (
     <div className="h-64 w-full">
       {chartData.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%" key={containerKey}>
+        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
@@ -70,16 +69,16 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.7} />
             <XAxis 
               dataKey="timestamp" 
+              type="number"
+              scale="time"
+              domain={[minTimestamp, maxTimestamp]}
               tickFormatter={formatXAxis} 
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
               tickLine={{ stroke: '#C8C8C9', strokeWidth: 1.5 }}
-              domain={xDomain}
-              type="number"
-              scale="time"
-              allowDataOverflow
               minTickGap={minTickGap}
+              allowDataOverflow={false}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
@@ -94,9 +93,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
             />
             <Tooltip 
               formatter={formatTooltipValue}
-              labelFormatter={(value) => {
-                return formatXAxis(value as number);
-              }}
+              labelFormatter={(value) => formatXAxis(value as number)}
               contentStyle={{
                 backgroundColor: 'var(--card)',
                 borderColor: 'var(--border)',
