@@ -14,14 +14,24 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
   chartHeight, 
   coordinates 
 }) => {
-  // Filter out zero BAC points, but ensure we keep at least one point if all are zero
-  const filteredData = chartData.filter(point => point.bac > 0);
+  // Ensure we have at least the first (current) and last (sober) points
+  // Even if BAC is 0, we need to display these critical points
+  if (chartData.length === 0) return null;
   
-  // For timeline visualization, we need at least the current point and the sober point
-  // If all points are filtered out, show at least the current point
-  const displayData = filteredData.length > 0 ? filteredData : (chartData.length > 0 ? [chartData[0]] : []);
-
-  if (displayData.length === 0) return null;
+  // Always include first point (current time) and last point (sober time)
+  const currentTimePoint = chartData[0];
+  const soberTimePoint = chartData[chartData.length - 1];
+  
+  // For intermediate points, filter out zero BAC points
+  const intermediatePoints = chartData.slice(1, -1).filter(point => point.bac > 0);
+  
+  // Construct display data with at least current and sober time points
+  const displayData = [currentTimePoint, ...intermediatePoints];
+  
+  // Only add sober time point if it's different from current time
+  if (chartData.length > 1 && soberTimePoint.time.getTime() !== currentTimePoint.time.getTime()) {
+    displayData.push(soberTimePoint);
+  }
 
   // Format time for tooltip display
   const formatTime = (date: Date): string => {
@@ -32,9 +42,15 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
     });
   };
 
-  // Create path coordinates
+  // Create path coordinates - always connecting current to sober time
   const createPath = () => {
-    if (displayData.length < 2) return '';
+    if (displayData.length < 2) {
+      // If only one point, create horizontal line to show time passage
+      const x1 = coordinates.getXCoordinate(displayData[0].time);
+      const y1 = coordinates.getYCoordinate(displayData[0].bac);
+      const x2 = x1 + 20; // Show a small line to indicate time direction
+      return `M ${x1}% ${y1} L ${x2}% ${y1}`;
+    }
     
     // Start with the first point (current time)
     let path = `M ${coordinates.getXCoordinate(displayData[0].time)}% ${coordinates.getYCoordinate(displayData[0].bac)}`;
@@ -49,12 +65,19 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
 
   // Create area under the path
   const createAreaPath = () => {
-    if (displayData.length < 2) return '';
+    if (displayData.length < 2) {
+      // If only one point, create small area to show time direction
+      const x1 = coordinates.getXCoordinate(displayData[0].time);
+      const y1 = coordinates.getYCoordinate(displayData[0].bac);
+      const x2 = x1 + 20; // Show a small area to indicate time direction
+      
+      return `M ${x1}% ${y1} L ${x2}% ${y1} L ${x2}% ${chartHeight} L ${x1}% ${chartHeight} Z`;
+    }
     
     // Start with the first point (current time)
     let path = `M ${coordinates.getXCoordinate(displayData[0].time)}% ${coordinates.getYCoordinate(displayData[0].bac)}`;
     
-    // Add line segments to each subsequent point (including the sober time)
+    // Add line segments to each subsequent point
     for (let i = 1; i < displayData.length; i++) {
       path += ` L ${coordinates.getXCoordinate(displayData[i].time)}% ${coordinates.getYCoordinate(displayData[i].bac)}`;
     }
@@ -70,10 +93,10 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
     return path;
   };
 
-  // Get the current and sober time points for highlighting
-  const currentTimePoint = displayData[0];
-  const soberTimePoint = displayData[displayData.length - 1];
-  const isSoberPoint = soberTimePoint.bac === 0 || soberTimePoint.bac < 0.001;
+  // Check if we have a sober point
+  const isSoberPoint = displayData.length > 1 && 
+    (displayData[displayData.length - 1].bac === 0 || 
+     displayData[displayData.length - 1].bac < 0.001);
 
   return (
     <TooltipProvider>
@@ -89,6 +112,7 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         <path
           d={createAreaPath()}
           fill="url(#bacGradient)"
+          className="transition-all duration-300"
         />
         
         {/* Draw the line itself - highlighted to show timeline from current to sober */}
@@ -148,8 +172,8 @@ export const BacLineGraph: React.FC<BacLineGraphProps> = ({
         {/* Sober time indicator (if available and different from current) */}
         {displayData.length > 1 && isSoberPoint && (
           <circle
-            cx={`${coordinates.getXCoordinate(soberTimePoint.time)}%`}
-            cy={coordinates.getYCoordinate(soberTimePoint.bac)}
+            cx={`${coordinates.getXCoordinate(displayData[displayData.length - 1].time)}%`}
+            cy={coordinates.getYCoordinate(displayData[displayData.length - 1].bac)}
             r="5"
             fill="hsl(var(--success))"
             stroke="white"
