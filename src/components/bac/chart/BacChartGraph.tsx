@@ -85,26 +85,27 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
 
   // Define time range for x-axis
   const startTime = now;
-  const endTime = soberTime && soberTime > now ? soberTime : new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  // Set end time to exactly 12 hours from now
+  const endTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
 
-  // Calculate total duration in hours
-  const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
+  // Calculate total duration in hours (fixed at 12 hours)
+  const totalHours = 12;
 
-  // Generate time markers for x-axis (consistently hourly intervals from now)
+  // Generate time markers for x-axis (exactly one per hour, for 12 hours)
   const hourMarks: Date[] = [];
 
   // Add current time as first marker
   hourMarks.push(new Date(now));
 
-  // Generate hourly markers (exactly one per hour)
-  for (let i = 1; i <= Math.min(12, Math.ceil(totalHours)); i++) {
-    const markerTime = new Date(now.getTime() + i * 60 * 60 * 1000);
-    if (markerTime <= endTime) {
-      hourMarks.push(markerTime);
-    }
+  // Generate even hourly markers for the next 12 hours
+  for (let i = 1; i <= 12; i++) {
+    const nextHour = new Date(now);
+    // Set minutes and seconds to 0 for the next hour
+    nextHour.setHours(now.getHours() + i, 0, 0, 0);
+    hourMarks.push(nextHour);
   }
 
-  // If sober time doesn't fall on an hour mark and it's our end point, add it
+  // If sober time doesn't fall on an hour mark and it's within our 12-hour window, add it
   if (soberTime && soberTime > now && soberTime <= endTime) {
     const isSoberTimeIncluded = hourMarks.some(mark => 
       Math.abs(mark.getTime() - soberTime.getTime()) < 60 * 1000 // Within a minute
