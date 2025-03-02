@@ -53,7 +53,7 @@ const BacChart: React.FC<BacChartProps> = ({ data, soberTime, className }) => {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <BacChartGraph data={data} />
+        <BacChartGraph data={data} soberTime={soberTime} />
         {soberTime && data.length > 0 && (
           <BacSoberTime soberTime={soberTime} />
         )}

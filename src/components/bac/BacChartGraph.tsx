@@ -1,13 +1,14 @@
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
 interface BacChartGraphProps {
   data: { time: Date; bac: number }[];
+  soberTime?: Date | null;
 }
 
-const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
+const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Transform the data for the chart with proper time formatting
   const chartData = data.map(point => ({
     timestamp: point.time.getTime(),
@@ -36,21 +37,43 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data }) => {
     return `${(value * 10).toFixed(1)}‰`;
   };
 
-  // Calculate the min and max timestamps to force axis updates
+  // Calculate the min and max timestamps, including sober time for X-axis domain
   const minTimestamp = chartData.length > 0 ? chartData[0].timestamp : 0;
-  const maxTimestamp = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+  
+  // Include sober time in the X-axis domain if available
+  let maxTimestamp = chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+  if (soberTime && soberTime.getTime() > maxTimestamp) {
+    // Set the max timestamp to sober time to show full timeline until sober
+    maxTimestamp = soberTime.getTime();
+    
+    // Optionally add the sober time point to the chart data if it's not already in the data
+    // and only if we have at least one data point (to avoid errors)
+    if (chartData.length > 0) {
+      chartData.push({
+        timestamp: soberTime.getTime(),
+        time: soberTime.toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false
+        }),
+        bac: 0.001, // Almost zero BAC at sober time
+        bacFormatted: "0.0"
+      });
+    }
+  }
   
   // Generate a unique key based on the timeline extent to force complete re-renders
-  const chartKey = `chart-${minTimestamp}-${maxTimestamp}-${data.length}`;
+  const chartKey = `chart-${minTimestamp}-${maxTimestamp}-${data.length}-${soberTime?.getTime() || 0}`;
   
   // Calculate time range to determine tick frequency
   const timeRange = maxTimestamp - minTimestamp;
   
   // Dynamic tick gap based on time range
   const minTickGap = timeRange < 1800000 ? 3 : // less than 30 min
-                      timeRange < 3600000 ? 5 : // less than 1 hour
-                      timeRange < 7200000 ? 10 : // less than 2 hours
-                      15; // default for longer periods
+                     timeRange < 3600000 ? 5 : // less than 1 hour
+                     timeRange < 7200000 ? 10 : // less than 2 hours
+                     timeRange < 14400000 ? 15 : // less than 4 hours
+                     30; // default for longer periods
 
   return (
     <div className="h-64 w-full">
