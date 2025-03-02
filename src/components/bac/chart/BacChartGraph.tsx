@@ -54,6 +54,19 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({
         });
       }
     }
+
+    // If we have sober time but it's not already in our chart data, add it
+    if (soberTime && newChartData.findIndex(point => 
+        Math.abs(point.time.getTime() - soberTime.getTime()) < 1000) === -1) {
+      // Add the sober time point
+      newChartData.push({
+        time: soberTime,
+        bac: 0
+      });
+      
+      // Sort again to ensure proper order
+      newChartData.sort((a, b) => a.time.getTime() - b.time.getTime());
+    }
     
     setChartData(newChartData);
     
