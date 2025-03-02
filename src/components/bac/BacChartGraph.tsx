@@ -111,7 +111,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
   // Chart dimensions - reduce height to prevent overflow
   const chartHeight = 180;
-  const leftPadding = 40;
+  const leftPadding = 50; // Increased to ensure Y-axis labels are fully visible
 
   return (
     <div className="w-full h-[230px] relative mb-2">
@@ -127,7 +127,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               className="absolute w-full border-t border-border border-opacity-50 flex items-center"
               style={{ top: `${percentY}%`, left: 0 }}
             >
-              <span className="absolute -left-[36px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute -left-[46px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -164,20 +164,21 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         )}
         
         {/* X-axis hour marks */}
-        <div className="absolute bottom-0 left-0 right-0 h-6 flex">
+        <div className="absolute bottom-0 left-0 right-0 flex">
           {hourMarks.map((timePoint, index) => {
-            // Calculate horizontal position
+            // Calculate horizontal position - adjust to use the full width correctly
             const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
             const percentX = (hourDiff / totalHours) * 100;
+            const xPos = leftPadding + (percentX * (100 - leftPadding) / 100);
             
             return (
               <div 
                 key={`hour-${index}`} 
                 className="absolute"
-                style={{ left: `${leftPadding + (percentX * (100 - leftPadding) / 100)}px` }}
+                style={{ left: `${xPos}%` }}
               >
                 <div className="h-full w-px bg-border opacity-50 absolute top-[-180px]"></div>
-                <div className="absolute -translate-x-1/2 text-xs text-muted-foreground font-medium whitespace-nowrap">
+                <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
                   {formatTime(timePoint)}
                 </div>
               </div>
@@ -190,7 +191,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}px` 
+              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
@@ -292,7 +293,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     // Calculate percentage based on total hours
     const percent = hoursSinceStart / totalHours;
     
-    // Adjust for left padding
+    // Convert percentage to actual position - using actual percentage of available width
     return leftPadding + percent * (100 - leftPadding);
   }
   
