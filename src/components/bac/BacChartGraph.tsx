@@ -65,11 +65,45 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
 
   // Functions for formatting chart values
   const formatXAxis = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], {
+    // Format to show only hour in HH:00 format
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
     });
+  };
+
+  // Generate hourly ticks for X-axis
+  const generateHourlyTicks = () => {
+    if (chartData.length === 0) return [];
+    
+    const firstTimestamp = chartData[0].timestamp;
+    const lastTimestamp = soberTime && soberTime.getTime() > chartData[chartData.length - 1].timestamp 
+      ? soberTime.getTime() 
+      : chartData[chartData.length - 1].timestamp;
+    
+    // Start with the first hour after the first data point
+    const firstDate = new Date(firstTimestamp);
+    // Set to the next full hour
+    const startHour = new Date(
+      firstDate.getFullYear(),
+      firstDate.getMonth(),
+      firstDate.getDate(),
+      firstDate.getHours() + (firstDate.getMinutes() > 0 ? 1 : 0),
+      0, 0, 0
+    );
+    
+    const ticks = [];
+    let currentTick = startHour.getTime();
+    
+    // Add hourly ticks until we reach beyond the last timestamp
+    while (currentTick <= lastTimestamp) {
+      ticks.push(currentTick);
+      currentTick += 60 * 60 * 1000; // Add 1 hour
+    }
+    
+    return ticks;
   };
 
   const formatTooltipValue = (value: number) => {
@@ -85,6 +119,9 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const xMax = soberTime && soberTime.getTime() > (chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0)
     ? soberTime.getTime()
     : chartData.length > 0 ? chartData[chartData.length - 1].timestamp : 0;
+
+  // Generate hourly ticks
+  const hourlyTicks = generateHourlyTicks();
 
   return (
     <div className="h-64 w-full">
@@ -107,6 +144,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               domain={[xMin, xMax]}
               scale="time"
               tickFormatter={formatXAxis} 
+              ticks={hourlyTicks}
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
