@@ -42,8 +42,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     );
   }
 
-  // Calculate max BAC for scaling (with minimum of 0.1)
-  const maxBac = Math.max(0.1, ...chartData.map(d => d.bac));
+  // Calculate max BAC for scaling (with minimum of 0.08 to ensure proper visualization)
+  const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
   // Get start and end times for the chart
   const startTime = chartData[0].time;
@@ -87,8 +87,9 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     bacInterval = 0.05;
   }
   
-  // Generate BAC marks from 0 up to maxBac (plus a little extra for display)
-  for (let level = 0; level <= maxBac * 1.1; level += bacInterval) {
+  // Generate BAC marks from 0 up to maxBac (rounded up to next interval)
+  const roundedMaxBac = Math.ceil(maxBac / bacInterval) * bacInterval;
+  for (let level = 0; level <= roundedMaxBac; level += bacInterval) {
     bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
   }
 
@@ -101,21 +102,19 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     }
   }
 
-  // Calculate a fixed height for chart content - this is crucial for proper scaling
-  const chartHeight = 350; // pixels
+  // Calculate chart dimensions for proper scaling
+  const chartHeight = 300; // pixels
+  const chartWidth = "100%"; // Use full width of container
 
   return (
-    <div className="w-full h-[400px] relative mb-4">
-      {/* Chart container with fixed height for better scaling */}
-      <div className="absolute inset-0 border-b border-l border-border pt-4 pb-8 pr-4" style={{ height: chartHeight }}>
+    <div className="w-full h-[350px] relative mb-4 overflow-visible">
+      {/* Chart container */}
+      <div className="absolute inset-0 border-b border-l border-border pt-2 pb-8 pr-2" style={{ height: chartHeight }}>
         {/* Horizontal grid lines and Y-axis labels */}
         {bacMarks.map((level, index) => {
-          // Skip if level is above our display range
-          if (level > maxBac * 1.1) return null;
+          const percentY = 100 - (level / roundedMaxBac) * 100;
           
-          // Calculate vertical position as percentage
-          const percentY = 100 - (level / maxBac) * 100;
-          // Skip if the label would be off-chart
+          // Skip if the position would be off-chart
           if (percentY < 0 || percentY > 100) return null;
           
           return (
@@ -124,7 +123,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
               className="absolute w-full border-t border-border border-opacity-50 flex items-center"
               style={{ top: `${percentY}%` }}
             >
-              <span className="absolute -left-10 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute -left-12 -mt-2 text-xs text-muted-foreground whitespace-nowrap">
                 {(level * 10).toFixed(1)}‰
               </span>
             </div>
@@ -132,11 +131,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         })}
         
         {/* Draw legal limit lines */}
-        {LEGAL_LIMITS.regular <= maxBac && (
+        {LEGAL_LIMITS.regular <= roundedMaxBac && (
           <div 
             className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
             style={{ 
-              top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
+              top: `${100 - (LEGAL_LIMITS.regular / roundedMaxBac) * 100}%`,
               zIndex: 5
             }}
           >
@@ -146,11 +145,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           </div>
         )}
         
-        {LEGAL_LIMITS.professional <= maxBac && (
+        {LEGAL_LIMITS.professional <= roundedMaxBac && (
           <div 
             className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
             style={{ 
-              top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
+              top: `${100 - (LEGAL_LIMITS.professional / roundedMaxBac) * 100}%`,
               zIndex: 5
             }}
           >
@@ -216,8 +215,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             d={`
               M ${getXCoordinate(chartData[0].time)} ${getYCoordinate(chartData[0].bac)}
               ${chartData.map(point => `L ${getXCoordinate(point.time)} ${getYCoordinate(point.bac)}`).join(' ')}
-              L ${getXCoordinate(chartData[chartData.length - 1].time)} ${getYCoordinate(0)}
-              L ${getXCoordinate(chartData[0].time)} ${getYCoordinate(0)}
+              L ${getXCoordinate(chartData[chartData.length - 1].time)} ${chartHeight}
+              L ${getXCoordinate(chartData[0].time)} ${chartHeight}
               Z
             `}
             fill="url(#bacGradient)"
@@ -256,11 +255,11 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           className="absolute -translate-x-1/2 -translate-y-full group"
           style={{ 
             left: `${getXPercent(point.time)}%`, 
-            top: `${getYPercent(point.bac)}%` 
+            top: `${Math.min(85, getYPercent(point.bac))}%`  // Limit tooltip position to avoid going out of bounds
           }}
         >
           <div className="w-2 h-2 opacity-0 group-hover:opacity-100"></div>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100">
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 z-20">
             <div className="bg-card text-card-foreground rounded-md shadow-lg px-3 py-2 text-xs border border-border">
               <div className="font-medium">{formatTime(point.time)}</div>
               <div>{(point.bac * 10).toFixed(1)}‰</div>
@@ -281,16 +280,16 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     
     const percent = (time.getTime() - chartStartTime) / timeRange;
     // Leave 5% padding on left side and 2% on right
-    return 5 + percent * 93;
+    return 20 + percent * 80; // Increased left padding for y-axis labels
   }
   
   function getYCoordinate(bac: number): number {
     // SVG coordinates go from top to bottom, so we need to invert
-    if (maxBac === 0) return 95; // Handle edge case
+    if (roundedMaxBac === 0) return chartHeight - 5; // Handle edge case
     
-    const percent = bac / maxBac;
+    const percent = bac / roundedMaxBac;
     // Leave 5% padding at the top, 5% at the bottom
-    return 95 - (percent * 90);
+    return chartHeight - (percent * (chartHeight - 10) + 5);
   }
   
   function getXPercent(time: Date): number {
@@ -304,11 +303,10 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   }
   
   function getYPercent(bac: number): number {
-    if (maxBac === 0) return 100; // Handle edge case
+    if (roundedMaxBac === 0) return 100; // Handle edge case
     
-    return 100 - ((bac / maxBac) * 100);
+    return 100 - ((bac / roundedMaxBac) * 100);
   }
 };
 
 export default BacChartGraph;
-
