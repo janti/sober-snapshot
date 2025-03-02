@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CarFront, CarTaxiFront, IceCreamCone } from 'lucide-react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
-import BacChartGraph from './BacChartGraph';
+import { BacChartGraph } from './chart';
 import BacSoberTime from './BacSoberTime';
 
 interface BacChartProps {
