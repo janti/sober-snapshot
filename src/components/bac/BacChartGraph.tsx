@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
@@ -10,6 +10,7 @@ interface BacChartGraphProps {
 
 const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const [chartData, setChartData] = useState<any[]>([]);
+  const prevDataRef = useRef<string>("");
   
   // Format time consistently across the component
   const formatTimeForDisplay = (date: Date): string => {
@@ -102,27 +103,58 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Calculate max BAC for y-axis scale (with minimum of 0.1)
   const maxBac = Math.max(...(data.map(d => d.bac) || [0]), 0.1);
   
-  // Calculate domain for X-axis based on data
-  const getXDomain = () => {
-    if (chartData.length < 2) return [0, 1]; // Default domain if no data
-
-    return [chartData[0].timestamp, chartData[chartData.length - 1].timestamp];
+  // Improved X-axis display
+  const formatXAxis = (timestamp: number) => {
+    const date = new Date(timestamp);
+    // Use 24-hour format with leading zeros for consistency
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
   
-  // Calculate appropriate ticks for X-axis
+  // Calculate appropriate ticks for X-axis - focus on showing even hours
   const getXTicks = () => {
     if (chartData.length < 2) return [];
     
     const ticks = [];
-    const start = chartData[0].timestamp;
-    const end = chartData[chartData.length - 1].timestamp;
+    const startTime = new Date(chartData[0].timestamp);
+    const endTime = new Date(chartData[chartData.length - 1].timestamp);
     
-    // Calculate number of ticks based on chart width
-    const numberOfTicks = 6; // Adjust based on chart width
-    const interval = (end - start) / (numberOfTicks - 1);
+    // Start from the next even hour after start time
+    let currentHour = startTime.getHours();
+    let tickDate = new Date(startTime);
     
-    for (let i = 0; i < numberOfTicks; i++) {
-      ticks.push(start + i * interval);
+    // Round up to next hour
+    tickDate.setHours(currentHour + 1, 0, 0, 0);
+    
+    // Add hourly ticks
+    while (tickDate <= endTime) {
+      ticks.push(tickDate.getTime());
+      
+      // Move to next hour
+      tickDate = new Date(tickDate);
+      tickDate.setHours(tickDate.getHours() + 1);
+    }
+    
+    // Ensure we have at least the start and end points
+    if (ticks.length === 0) {
+      ticks.push(startTime.getTime());
+      ticks.push(endTime.getTime());
+    } else if (!ticks.includes(startTime.getTime())) {
+      ticks.unshift(startTime.getTime());
+    }
+    
+    if (!ticks.includes(endTime.getTime())) {
+      ticks.push(endTime.getTime());
+    }
+    
+    // Include sober time tick if available
+    if (soberTime && soberTime.getTime() > startTime.getTime() && soberTime.getTime() < endTime.getTime()) {
+      const soberTimestamp = soberTime.getTime();
+      if (!ticks.includes(soberTimestamp)) {
+        ticks.push(soberTimestamp);
+        ticks.sort((a, b) => a - b);
+      }
     }
     
     return ticks;
@@ -131,11 +163,6 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   // Format tooltip values
   const formatTooltipValue = (value: number) => {
     return `${(value * 10).toFixed(1)}‰`;
-  };
-  
-  // Format function for X-axis
-  const formatXAxis = (timestamp: number) => {
-    return formatTimeForDisplay(new Date(timestamp));
   };
 
   return (
@@ -156,14 +183,15 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             <XAxis 
               dataKey="timestamp" 
               type="number"
-              domain={getXDomain()}
+              domain={[chartData[0].timestamp, chartData[chartData.length-1].timestamp]}
               scale="time"
               tickFormatter={formatXAxis}
               ticks={getXTicks()}
               tick={{ fontSize: 12, fill: "#C8C8C9" }}
               stroke="#C8C8C9"
               strokeWidth={1.5}
-              allowDataOverflow={true}
+              allowDataOverflow={false}
+              minTickGap={20}
             />
             <YAxis 
               tickFormatter={value => `${(value * 10).toFixed(1)}`}
@@ -176,7 +204,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
             />
             <Tooltip 
               formatter={formatTooltipValue}
-              labelFormatter={(value) => formatXAxis(value as number)}
+              labelFormatter={value => formatXAxis(value as number)}
               contentStyle={{
                 backgroundColor: 'var(--card)',
                 borderColor: 'var(--border)',
