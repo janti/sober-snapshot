@@ -54,12 +54,18 @@ export function calculateBacOverTime(
   user: UserData,
   drinks: DrinkData[],
   startTime: Date = new Date(Math.min(...drinks.map(d => d.timestamp.getTime()))),
-  endTime: Date = new Date(),
+  endTime: Date = new Date(new Date().getTime() + 12 * 60 * 60 * 1000),
   intervalMinutes: number = 10
 ): { time: Date; bac: number }[] {
   if (drinks.length === 0 || user.weight <= 0) return [];
 
   const sortedDrinks = [...drinks].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  
+  // Ensure startTime is not after the current time
+  const now = new Date();
+  if (startTime > now) {
+    startTime = now;
+  }
   
   // Generate time points between start and end
   const timePoints: Date[] = [];

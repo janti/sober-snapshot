@@ -35,6 +35,18 @@ const BacCalculator: React.FC = () => {
   
   // Current status
   const [currentBac, setCurrentBac] = useState(0);
+
+  // Force refresh of calculations
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Set up interval to update current BAC regularly
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setRefreshTrigger(prev => prev + 1);
+    }, 30000); // Update every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
   
   // Update calculations when user data or drinks change
   useEffect(() => {
@@ -80,11 +92,12 @@ const BacCalculator: React.FC = () => {
     const estimatedSoberTime = calculateTimeTillSober(userData, drinks);
     setSoberTime(estimatedSoberTime);
     
-  }, [userData, drinks]);
+  }, [userData, drinks, refreshTrigger]);
   
   // Handle adding a drink
   const handleAddDrink = (drink: DrinkData) => {
     setDrinks(prev => [...prev, drink]);
+    setRefreshTrigger(prev => prev + 1); // Force immediate update
     
     // Show toast notification
     toast({
@@ -96,6 +109,7 @@ const BacCalculator: React.FC = () => {
   // Handle removing a drink
   const handleRemoveDrink = (id: string) => {
     setDrinks(prev => prev.filter(drink => drink.id !== id));
+    setRefreshTrigger(prev => prev + 1); // Force immediate update
   };
   
   // Handle resetting the calculator
@@ -121,6 +135,11 @@ const BacCalculator: React.FC = () => {
 
   const status = getBacStatus();
 
+  // Update BAC calculation when the component is first loaded or on manual refresh
+  const refreshCalculations = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Main header */}
@@ -144,6 +163,15 @@ const BacCalculator: React.FC = () => {
             {status.icon}
             <span>{status.message}</span>
           </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={refreshCalculations} 
+            className="mt-3 text-xs flex items-center gap-1"
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>Refresh</span>
+          </Button>
         </CardContent>
       </Card>
       
