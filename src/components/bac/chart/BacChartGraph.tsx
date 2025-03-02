@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { LEGAL_LIMITS } from '@/utils/bacCalculation';
 import { BacAxisLabels } from './BacAxisLabels';
@@ -70,93 +71,88 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
     );
   }
 
-  // Calculate max BAC for scaling (with minimum of 0.08 to ensure proper visualization)
+  // Calculate max BAC for y-axis (with minimum of 0.08 to ensure proper visualization)
   const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
-  // Always use current time as start for x-axis
-  const now = new Date(); 
-  const startTime = now;
-  const endTime = soberTime && soberTime > now ? 
-    soberTime : 
-    new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  // Get current time
+  const now = new Date();
   
-  // Calculate total hours for the chart (minimum 3)
+  // Define time range for x-axis
+  const startTime = now;
+  const endTime = soberTime && soberTime > now 
+    ? soberTime 
+    : new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  
+  // Calculate total duration in hours
   const totalHours = Math.max(3, (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000));
   
-  // Determine hour interval based on total duration
-  let hourInterval = 1; // Default to 1 hour
+  // Determine hour interval for x-axis labels
+  let hourInterval = 1;
   if (totalHours > 12) {
     hourInterval = 3;
   } else if (totalHours > 6) {
     hourInterval = 2;
   }
 
-  // Generate hour marks for x-axis
+  // Generate x-axis time markers
   const hourMarks: Date[] = [];
   
-  // Always add the current time (now) as the first mark
+  // Start with current time
   hourMarks.push(new Date(now));
   
-  // Round to the nearest hour for subsequent marks
-  let nextHourMark = new Date(now);
-  nextHourMark.setMinutes(0, 0, 0); // Round to the current hour
+  // Add next hour (rounded)
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
   
-  // If we're past the 30-minute mark, move to the next hour
-  if (now.getMinutes() > 30) {
-    nextHourMark.setHours(nextHourMark.getHours() + 1);
-  } else {
-    // Otherwise, keep the current hour
-    nextHourMark.setHours(nextHourMark.getHours());
+  // If next hour is at least 20 minutes away, add it
+  if (nextHour.getTime() - now.getTime() > 20 * 60 * 1000) {
+    hourMarks.push(new Date(nextHour));
   }
   
-  // Only add the next hour mark if it's sufficiently far from now
-  if (nextHourMark.getTime() - now.getTime() > 15 * 60 * 1000) { // At least 15 minutes difference
-    hourMarks.push(new Date(nextHourMark));
-  }
-  
-  // Add remaining hour marks at regular intervals
-  while (hourMarks.length < 6 && nextHourMark < endTime) {
-    nextHourMark = new Date(nextHourMark.getTime() + hourInterval * 60 * 60 * 1000);
-    if (nextHourMark <= endTime) {
-      hourMarks.push(new Date(nextHourMark));
+  // Add remaining hours
+  let currentHour = new Date(nextHour);
+  while (hourMarks.length < 6 && currentHour < endTime) {
+    currentHour = new Date(currentHour.getTime() + hourInterval * 60 * 60 * 1000);
+    if (currentHour <= endTime) {
+      hourMarks.push(new Date(currentHour));
     }
   }
   
-  // Create BAC level marks with appropriate intervals, always including zero
-  const bacMarks: number[] = [0]; // Start from zero
-  let bacInterval = 0.02;
+  // Generate y-axis BAC value markers
+  const bacMarks: number[] = [0]; // Always include zero
   
+  // Determine BAC interval based on max value
+  let bacInterval = 0.02;
   if (maxBac > 0.4) {
     bacInterval = 0.1;
   } else if (maxBac > 0.2) {
     bacInterval = 0.05;
   }
   
+  // Add BAC markers
   for (let level = bacInterval; level <= maxBac; level += bacInterval) {
-    bacMarks.push(parseFloat(level.toFixed(4))); // Avoid floating point issues
+    bacMarks.push(parseFloat(level.toFixed(4))); // Fix floating point precision
   }
 
   // Chart dimensions
   const chartHeight = 180;
-  const leftPadding = 50; // For Y-axis labels
+  const leftPadding = 50; // Space for y-axis labels
   
-  // Helper functions to calculate coordinates
+  // Coordinate calculation functions
   const coordinates = {
     getXCoordinate(time: Date): number {
-      // Convert to milliseconds since start
-      const msSinceStart = time.getTime() - startTime.getTime();
-      
-      // Convert to percentage of total duration
-      const totalMs = totalHours * 60 * 60 * 1000;
-      const percent = (msSinceStart / totalMs) * 100;
+      // Calculate position as percentage of total time range
+      const timePosition = time.getTime() - startTime.getTime();
+      const totalTimeRange = endTime.getTime() - startTime.getTime();
+      const percentage = (timePosition / totalTimeRange) * (100 - leftPadding);
       
       // Apply left padding
-      return leftPadding + (percent * (100 - leftPadding) / 100);
+      return leftPadding + percentage;
     },
     
     getYCoordinate(bac: number): number {
-      // Convert BAC to percentage of max BAC and invert (0 at bottom, max at top)
-      if (maxBac === 0) return chartHeight;
+      // Invert y-coordinate (0 at bottom, maxBac at top)
       return chartHeight - (bac / maxBac) * chartHeight;
     }
   };

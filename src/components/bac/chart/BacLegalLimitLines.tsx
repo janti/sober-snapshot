@@ -7,14 +7,18 @@ interface BacLegalLimitLinesProps {
 }
 
 export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ maxBac }) => {
+  // Calculate position for each limit line based on percentage of max BAC
+  const regularLimitPosition = 100 - (LEGAL_LIMITS.regular / maxBac) * 100;
+  const professionalLimitPosition = 100 - (LEGAL_LIMITS.professional / maxBac) * 100;
+  
   return (
     <>
-      {/* Draw legal limit lines */}
+      {/* Draw legal limit lines only if they're within the visible range */}
       {LEGAL_LIMITS.regular <= maxBac && (
         <div 
           className="absolute w-full border-t-2 border-dashed border-destructive border-opacity-70"
           style={{ 
-            top: `${100 - (LEGAL_LIMITS.regular / maxBac) * 100}%`,
+            top: `${regularLimitPosition}%`,
             zIndex: 5
           }}
         >
@@ -28,7 +32,7 @@ export const BacLegalLimitLines: React.FC<BacLegalLimitLinesProps> = ({ maxBac }
         <div 
           className="absolute w-full border-t-2 border-dashed border-amber-500 border-opacity-70"
           style={{ 
-            top: `${100 - (LEGAL_LIMITS.professional / maxBac) * 100}%`,
+            top: `${professionalLimitPosition}%`,
             zIndex: 5
           }}
         >

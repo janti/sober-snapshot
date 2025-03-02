@@ -23,15 +23,15 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
 }) => {
   return (
     <>
-      {/* Horizontal grid lines and Y-axis labels */}
+      {/* Y-axis labels and horizontal grid lines */}
       {bacMarks.map((level, index) => {
-        const yCoord = coordinates.getYCoordinate(level);
+        const yPosition = coordinates.getYCoordinate(level);
         
         return (
           <div 
             key={`y-${index}`} 
             className="absolute w-full border-t border-border border-opacity-50 flex items-center"
-            style={{ top: `${yCoord}px`, left: 0 }}
+            style={{ top: `${yPosition}px`, left: 0 }}
           >
             <span className="absolute -left-[46px] -mt-2 text-xs text-muted-foreground whitespace-nowrap">
               {(level * 10).toFixed(1)}‰
@@ -40,16 +40,16 @@ export const BacAxisLabels: React.FC<BacAxisLabelsProps> = ({
         );
       })}
       
-      {/* X-axis hour marks */}
+      {/* X-axis time labels and vertical grid lines */}
       <div className="absolute bottom-0 left-0 right-0 flex">
         {hourMarks.map((timePoint, index) => {
-          const xCoord = coordinates.getXCoordinate(timePoint);
+          const xPosition = coordinates.getXCoordinate(timePoint);
           
           return (
             <div 
               key={`hour-${index}`} 
               className="absolute"
-              style={{ left: `${xCoord}%` }}
+              style={{ left: `${xPosition}%` }}
             >
               <div className={`h-full w-px bg-border opacity-50 absolute top-[-${chartHeight}px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
               <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
