@@ -76,7 +76,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   const maxBac = Math.max(0.08, ...chartData.map(d => d.bac * 1.2));
   
   // Get start and end times for the chart
-  const startTime = new Date(); // Always use current time as start
+  const startTime = chartData[0].time; // Use the first data point's time
   const endTime = soberTime || 
     new Date(startTime.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours ahead
   
@@ -90,24 +90,24 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   } else if (totalHours > 6) {
     hourInterval = 2;
   }
-  
-  // Generate hour marks starting from current time at exact hours
+
+  // Generate hour marks - create evenly spaced marks starting from start time
   const hourMarks: Date[] = [];
-  let currentHour = new Date(startTime);
   
-  // Round to the nearest hour
-  currentHour.setMinutes(0, 0, 0);
-  if (currentHour.getTime() < startTime.getTime()) {
-    currentHour.setHours(currentHour.getHours() + 1);
-  }
-  
-  // Add current time as first mark
+  // Add start time as first mark
   hourMarks.push(new Date(startTime));
   
-  // Add hour marks until end time
-  while (currentHour.getTime() <= endTime.getTime()) {
-    hourMarks.push(new Date(currentHour));
-    currentHour.setHours(currentHour.getHours() + hourInterval);
+  // Calculate how many marks we need based on total hours
+  const numberOfMarks = Math.min(5, Math.floor(totalHours) + 1);
+  
+  // Create evenly spaced time marks
+  if (numberOfMarks > 1) {
+    const intervalHours = totalHours / (numberOfMarks - 1);
+    
+    for (let i = 1; i < numberOfMarks; i++) {
+      const markTime = new Date(startTime.getTime() + i * intervalHours * 60 * 60 * 1000);
+      hourMarks.push(markTime);
+    }
   }
 
   // Create BAC level marks with appropriate intervals, always including zero
@@ -181,16 +181,14 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
         {/* X-axis hour marks */}
         <div className="absolute bottom-0 left-0 right-0 flex">
           {hourMarks.map((timePoint, index) => {
-            // Calculate horizontal position as percentage of available chart width
-            const hourDiff = (timePoint.getTime() - startTime.getTime()) / (60 * 60 * 1000);
-            const percentX = (hourDiff / totalHours) * 100;
-            const xPos = leftPadding + (percentX * (100 - leftPadding) / 100);
+            // Calculate horizontal position as percentage of total chart width
+            const percentX = (index / (hourMarks.length - 1 || 1)) * 100;
             
             return (
               <div 
                 key={`hour-${index}`} 
                 className="absolute"
-                style={{ left: `${xPos}%` }}
+                style={{ left: `${leftPadding + (percentX * (100 - leftPadding) / 100)}%` }}
               >
                 <div className={`h-full w-px bg-border opacity-50 absolute top-[-180px] ${index === 0 ? 'bg-primary bg-opacity-30' : ''}`}></div>
                 <div className="absolute -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
@@ -206,7 +204,7 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
           <div 
             className="absolute h-full"
             style={{ 
-              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (totalHours * 60 * 60 * 1000)) * (100 - leftPadding)}%` 
+              left: `${leftPadding + ((soberTime.getTime() - startTime.getTime()) / (endTime.getTime() - startTime.getTime())) * (100 - leftPadding)}%` 
             }}
           >
             <div className="h-full w-px bg-green-500 opacity-70 dashed-border z-10"></div>
@@ -302,11 +300,8 @@ const BacChartGraph: React.FC<BacChartGraphProps> = ({ data, soberTime }) => {
   
   // Helper functions to calculate coordinates
   function getXCoordinate(time: Date): number {
-    // Convert to hours since start
-    const hoursSinceStart = (time.getTime() - startTime.getTime()) / (60 * 60 * 1000);
-    
-    // Calculate percentage based on total hours
-    const percent = hoursSinceStart / totalHours;
+    // Calculate percentage based on time position between start and end
+    const percent = (time.getTime() - startTime.getTime()) / (endTime.getTime() - startTime.getTime());
     
     // Convert percentage to actual position - using actual percentage of available width
     return leftPadding + percent * (100 - leftPadding);
